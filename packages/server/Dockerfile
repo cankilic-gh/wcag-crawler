@@ -1,6 +1,13 @@
 # Build stage
 FROM node:20-slim AS builder
 
+# Install build dependencies for native modules (better-sqlite3)
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Copy package files
@@ -18,8 +25,11 @@ RUN npm run build
 # Production stage
 FROM node:20-slim
 
-# Install curl for healthcheck and Chromium dependencies for Playwright
+# Install build tools, curl for healthcheck, and Chromium dependencies for Playwright
 RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
     curl \
     libnss3 \
     libnspr4 \
