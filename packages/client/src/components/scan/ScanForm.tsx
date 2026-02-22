@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Globe, ChevronDown, ChevronUp, Loader2, Shield, CheckCircle2 } from 'lucide-react';
 import { scanApi } from '../../lib/api';
+import { scanStorage } from '../../lib/storage';
 import { DEFAULT_SCAN_CONFIG, VIEWPORT_PRESETS } from '../../lib/constants';
 import type { ScanConfig } from '../../types';
 
@@ -40,6 +41,12 @@ export function ScanForm() {
     setIsLoading(true);
     try {
       const result = await scanApi.create(url, config);
+      // Save to localStorage for history
+      scanStorage.add({
+        id: result.id,
+        url: url,
+        createdAt: new Date().toISOString(),
+      });
       navigate(`/scans/${result.id}/progress`);
     } catch (err) {
       setError('Failed to start scan. Please try again.');

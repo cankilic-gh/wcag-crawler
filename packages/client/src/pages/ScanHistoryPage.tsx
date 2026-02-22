@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Trash2, ExternalLink, Loader2 } from 'lucide-react';
 import { scanApi } from '../lib/api';
+import { scanStorage } from '../lib/storage';
 import { EmptyState } from '../components/common/EmptyState';
 import type { Scan } from '../types';
 
@@ -14,12 +15,21 @@ export function ScanHistoryPage() {
   }, []);
 
   const loadScans = () => {
+    const myScans = scanStorage.getIds();
+    if (myScans.length === 0) {
+      setScans([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     scanApi
-      .list(100)
+      .list(500)
       .then((data) => {
         if (Array.isArray(data)) {
-          setScans(data);
+          // Filter to only show user's own scans
+          const filtered = data.filter(scan => myScans.includes(scan.id));
+          setScans(filtered);
         }
       })
       .catch(console.error)
@@ -31,9 +41,12 @@ export function ScanHistoryPage() {
 
     try {
       await scanApi.delete(id);
+      scanStorage.remove(id);
       setScans(scans.filter((s) => s.id !== id));
     } catch (error) {
-      console.error('Failed to delete scan:', error);
+      // Even if API fails, remove from local storage
+      scanStorage.remove(id);
+      setScans(scans.filter((s) => s.id !== id));
     }
   };
 

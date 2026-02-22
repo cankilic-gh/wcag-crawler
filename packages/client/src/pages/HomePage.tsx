@@ -3,15 +3,21 @@ import { Link } from 'react-router-dom';
 import { Accessibility, Clock } from 'lucide-react';
 import { ScanForm } from '../components/scan/ScanForm';
 import { scanApi } from '../lib/api';
+import { scanStorage } from '../lib/storage';
 import type { Scan } from '../types';
 
 export function HomePage() {
   const [recentScans, setRecentScans] = useState<Scan[]>([]);
 
   useEffect(() => {
-    scanApi.list(10).then((data) => {
+    const myScans = scanStorage.getIds();
+    if (myScans.length === 0) return;
+
+    scanApi.list(100).then((data) => {
       if (Array.isArray(data)) {
-        setRecentScans(data);
+        // Filter to only show user's own scans
+        const filtered = data.filter(scan => myScans.includes(scan.id));
+        setRecentScans(filtered.slice(0, 10));
       }
     }).catch(console.error);
   }, []);
