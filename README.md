@@ -147,16 +147,54 @@ Get actionable reports with:
 ## Deployment
 
 ### Frontend (Vercel)
+
+1. Deploy to Vercel:
 ```bash
 cd packages/client
 vercel --prod
 ```
 
-### Backend (Railway/Render)
-The backend requires Playwright (browser automation), so it needs a platform that supports browsers:
-- [Railway](https://railway.app)
-- [Render](https://render.com)
-- [Fly.io](https://fly.io)
+2. Add environment variables in Vercel dashboard:
+```
+VITE_API_URL=https://your-backend-url.up.railway.app
+VITE_SOCKET_URL=https://your-backend-url.up.railway.app
+```
+
+### Backend (Render - Recommended)
+
+The backend requires Playwright (browser automation). Render handles this well:
+
+1. Go to [render.com](https://render.com) and sign in with GitHub
+2. Click "New" → "Blueprint"
+3. Connect your `wcag-crawler` repository
+4. Render will auto-detect `render.yaml` and configure everything
+5. Click "Apply" to deploy
+
+**Or manually:**
+1. Click "New" → "Web Service"
+2. Connect `wcag-crawler` repository
+3. Settings:
+   - **Root Directory**: `packages/server`
+   - **Environment**: Docker
+   - **Dockerfile Path**: `./Dockerfile`
+
+### Backend (Railway - Alternative)
+
+1. Go to [railway.app](https://railway.app) and sign in with GitHub
+2. "New Project" → "Deploy from GitHub repo" → select `wcag-crawler`
+3. Railway will create a "server" service from `packages/server`
+4. Add environment variables:
+   - `CLIENT_URL`: `https://wcag.thegridbase.com`
+   - `NODE_ENV`: `production`
+5. In Settings → Networking → "Generate Domain" with port `3001`
+
+### Environment Variables
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `CLIENT_URL` | Frontend URL for CORS | `https://wcag.thegridbase.com` |
+| `NODE_ENV` | Environment mode | `production` |
+| `PORT` | Server port (auto-set) | `3001` |
 
 ## Contributing
 
