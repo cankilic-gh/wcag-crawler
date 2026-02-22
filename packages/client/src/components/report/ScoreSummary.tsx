@@ -1,0 +1,119 @@
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import type { ReportSummary } from '../../types';
+import { SEVERITY_COLORS } from '../../lib/constants';
+
+interface ScoreSummaryProps {
+  summary: ReportSummary;
+}
+
+export function ScoreSummary({ summary }: ScoreSummaryProps) {
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return '#22c55e';
+    if (score >= 50) return '#eab308';
+    return '#ef4444';
+  };
+
+  const scoreData = [
+    { name: 'Score', value: summary.score },
+    { name: 'Remaining', value: 100 - summary.score },
+  ];
+
+  const severityData = [
+    { name: 'Critical', value: summary.bySeverity.critical, color: SEVERITY_COLORS.critical.hex },
+    { name: 'Serious', value: summary.bySeverity.serious, color: SEVERITY_COLORS.serious.hex },
+    { name: 'Moderate', value: summary.bySeverity.moderate, color: SEVERITY_COLORS.moderate.hex },
+    { name: 'Minor', value: summary.bySeverity.minor, color: SEVERITY_COLORS.minor.hex },
+  ];
+
+  const totalIssues = summary.totalIssuesRaw;
+
+  return (
+    <div className="grid grid-cols-4 gap-6">
+      {/* Score donut */}
+      <div className="card flex flex-col items-center justify-center">
+        <div className="relative w-32 h-32">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={scoreData}
+                cx="50%"
+                cy="50%"
+                innerRadius={40}
+                outerRadius={55}
+                startAngle={90}
+                endAngle={-270}
+                paddingAngle={0}
+                dataKey="value"
+              >
+                <Cell fill={getScoreColor(summary.score)} />
+                <Cell fill="#1e1e2e" />
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span
+              className="text-3xl font-heading font-bold"
+              style={{ color: getScoreColor(summary.score) }}
+            >
+              {summary.score}
+            </span>
+          </div>
+        </div>
+        <p className="text-sm text-slate-400 mt-2">Accessibility Score</p>
+      </div>
+
+      {/* Metrics */}
+      <div className="card">
+        <p className="text-3xl font-heading font-bold text-white">{summary.totalPages}</p>
+        <p className="text-sm text-slate-400">Pages Scanned</p>
+        <div className="mt-4 pt-4 border-t border-border">
+          <p className="text-xl font-heading font-bold text-white">{summary.totalIssuesDeduplicated}</p>
+          <p className="text-xs text-slate-400">Unique Issues</p>
+        </div>
+      </div>
+
+      {/* Severity breakdown */}
+      <div className="card col-span-2">
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-sm text-slate-400">Issues by Severity</p>
+          <p className="text-sm text-slate-500">{totalIssues} total</p>
+        </div>
+
+        {/* Severity bar */}
+        <div className="flex h-4 rounded-lg overflow-hidden mb-4">
+          {severityData.map((item) => (
+            <div
+              key={item.name}
+              style={{
+                width: `${(item.value / totalIssues) * 100}%`,
+                backgroundColor: item.color,
+              }}
+              className="transition-all duration-500"
+            />
+          ))}
+        </div>
+
+        {/* Legend */}
+        <div className="grid grid-cols-4 gap-2">
+          {severityData.map((item) => {
+            const ruleCount = summary.ruleCountBySeverity?.[item.name.toLowerCase() as keyof typeof summary.ruleCountBySeverity] || 0;
+            return (
+              <div key={item.name} className="text-center">
+                <p
+                  className="text-xl font-heading font-bold"
+                  style={{ color: item.color }}
+                >
+                  {item.value}
+                </p>
+                <p className="text-xs text-slate-500">{item.name}</p>
+                {ruleCount > 0 && (
+                  <p className="text-xs text-slate-600">{ruleCount} {ruleCount === 1 ? 'rule' : 'rules'}</p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
