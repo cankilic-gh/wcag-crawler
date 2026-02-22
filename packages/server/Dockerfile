@@ -71,15 +71,9 @@ RUN mkdir -p /app/data
 
 # Set environment variables
 ENV NODE_ENV=production
-ENV PORT=3001
 ENV DATABASE_PATH=/app/data/wcag-crawler.db
 
-# Expose port
-EXPOSE 3001
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:3001/health || exit 1
+# Note: Railway provides PORT dynamically, don't hardcode it
 
 # Start the server
 CMD ["node", "dist/index.js"]

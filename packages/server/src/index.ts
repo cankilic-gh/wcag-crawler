@@ -94,9 +94,9 @@ async function start() {
     initializeDatabase();
     logger.info('Database initialized');
 
-    // Start server
-    httpServer.listen(PORT, () => {
-      logger.info(`Server running on http://localhost:${PORT}`);
+    // Start server - bind to 0.0.0.0 for container environments
+    httpServer.listen(Number(PORT), '0.0.0.0', () => {
+      logger.info(`Server running on port ${PORT}`);
       logger.info(`Socket.IO ready for connections`);
     });
   } catch (error) {
