@@ -1,0 +1,21 @@
+# Render Blueprint for WCAG Crawler
+services:
+  - type: web
+    name: wcag-crawler-server
+    env: docker
+    dockerfilePath: ./packages/server/Dockerfile
+    dockerContext: ./packages/server
+    region: oregon
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CLIENT_URL
+        value: https://wcag.thegridbase.com
+      - key: PORT
+        value: 3001
+    disk:
+      name: data
+      mountPath: /app/data
+      sizeGB: 1
