@@ -167,25 +167,9 @@ export function PageIssues({ pages }: PageIssuesProps) {
                 </div>
               </div>
 
-              {(() => {
-                const hasCritical = group.issues.some(i => i.impact === 'critical');
-                const hasSerious = group.issues.some(i => i.impact === 'serious');
-                const hasModerate = group.issues.some(i => i.impact === 'moderate');
-
-                const colorClass = hasCritical
-                  ? 'bg-critical/20 text-critical'
-                  : hasSerious
-                  ? 'bg-serious/20 text-serious'
-                  : hasModerate
-                  ? 'bg-moderate/20 text-moderate'
-                  : 'bg-minor/20 text-minor';
-
-                return (
-                  <span className={`text-sm font-medium px-2 py-0.5 rounded ${colorClass}`}>
-                    {group.uniqueIssueCount} issues
-                  </span>
-                );
-              })()}
+              <span className="text-sm font-medium px-2 py-0.5 rounded bg-slate-700/50 text-slate-300">
+                {group.uniqueIssueCount} {group.uniqueIssueCount === 1 ? 'issue' : 'issues'}
+              </span>
             </button>
 
             {expanded.has(group.basePath) && (
