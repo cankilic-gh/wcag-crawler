@@ -9,7 +9,11 @@ export function HomePage() {
   const [recentScans, setRecentScans] = useState<Scan[]>([]);
 
   useEffect(() => {
-    scanApi.list(10).then(setRecentScans).catch(console.error);
+    scanApi.list(10).then((data) => {
+      if (Array.isArray(data)) {
+        setRecentScans(data);
+      }
+    }).catch(console.error);
   }, []);
 
   const formatDate = (date: string) => {

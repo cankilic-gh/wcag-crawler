@@ -18,8 +18,12 @@ export const scanApi = {
   },
 
   list: async (limit = 50, offset = 0) => {
-    const response = await api.get<Scan[]>(`/scans?limit=${limit}&offset=${offset}`);
-    return response.data;
+    try {
+      const response = await api.get<Scan[]>(`/scans?limit=${limit}&offset=${offset}`);
+      return response.data || [];
+    } catch {
+      return [];
+    }
   },
 
   get: async (id: string) => {

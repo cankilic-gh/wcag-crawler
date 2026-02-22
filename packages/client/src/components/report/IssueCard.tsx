@@ -80,7 +80,7 @@ export function IssueCard({ issue, showAffectedPages = false }: IssueCardProps) 
             <p className="text-sm text-slate-300 mb-3">{issue.description}</p>
 
             <div className="flex flex-wrap items-center gap-3">
-              {issue.wcagCriteria.length > 0 && (
+              {issue.wcagCriteria && issue.wcagCriteria.length > 0 && (
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs text-slate-500">WCAG:</span>
                   {issue.wcagCriteria.map((criterion) => (

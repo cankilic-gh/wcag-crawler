@@ -17,7 +17,11 @@ export function ScanHistoryPage() {
     setLoading(true);
     scanApi
       .list(100)
-      .then(setScans)
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setScans(data);
+        }
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   };
