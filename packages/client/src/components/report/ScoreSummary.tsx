@@ -19,13 +19,16 @@ export function ScoreSummary({ summary }: ScoreSummaryProps) {
   ];
 
   const severityData = [
-    { name: 'Critical', value: summary.bySeverity.critical, color: SEVERITY_COLORS.critical.hex },
-    { name: 'Serious', value: summary.bySeverity.serious, color: SEVERITY_COLORS.serious.hex },
-    { name: 'Moderate', value: summary.bySeverity.moderate, color: SEVERITY_COLORS.moderate.hex },
-    { name: 'Minor', value: summary.bySeverity.minor, color: SEVERITY_COLORS.minor.hex },
+    { name: 'Critical', value: summary.ruleCountBySeverity?.critical || 0, color: SEVERITY_COLORS.critical.hex },
+    { name: 'Serious', value: summary.ruleCountBySeverity?.serious || 0, color: SEVERITY_COLORS.serious.hex },
+    { name: 'Moderate', value: summary.ruleCountBySeverity?.moderate || 0, color: SEVERITY_COLORS.moderate.hex },
+    { name: 'Minor', value: summary.ruleCountBySeverity?.minor || 0, color: SEVERITY_COLORS.minor.hex },
   ];
 
-  const totalIssues = summary.totalIssuesRaw;
+  const totalIssues = (summary.ruleCountBySeverity?.critical || 0) +
+    (summary.ruleCountBySeverity?.serious || 0) +
+    (summary.ruleCountBySeverity?.moderate || 0) +
+    (summary.ruleCountBySeverity?.minor || 0);
 
   return (
     <div className="grid grid-cols-4 gap-6">
@@ -76,7 +79,7 @@ export function ScoreSummary({ summary }: ScoreSummaryProps) {
       <div className="card col-span-2">
         <div className="flex items-center justify-between mb-4">
           <p className="text-sm text-slate-400">Issues by Severity</p>
-          <p className="text-sm text-slate-500">{totalIssues} total</p>
+          <p className="text-sm text-slate-500">{totalIssues} unique {totalIssues === 1 ? 'issue' : 'issues'}</p>
         </div>
 
         {/* Severity bar */}
@@ -96,7 +99,7 @@ export function ScoreSummary({ summary }: ScoreSummaryProps) {
         {/* Legend */}
         <div className="grid grid-cols-4 gap-2">
           {severityData.map((item) => {
-            const ruleCount = summary.ruleCountBySeverity?.[item.name.toLowerCase() as keyof typeof summary.ruleCountBySeverity] || 0;
+            const rawCount = summary.bySeverity[item.name.toLowerCase() as keyof typeof summary.bySeverity] || 0;
             return (
               <div key={item.name} className="text-center">
                 <p
@@ -105,9 +108,9 @@ export function ScoreSummary({ summary }: ScoreSummaryProps) {
                 >
                   {item.value}
                 </p>
-                <p className="text-xs text-slate-500">{item.name}</p>
-                {ruleCount > 0 && (
-                  <p className="text-xs text-slate-600">{ruleCount} {ruleCount === 1 ? 'rule' : 'rules'}</p>
+                <p className="text-xs text-slate-500">{item.value === 1 ? 'Issue' : 'Issues'}</p>
+                {rawCount > item.value && (
+                  <p className="text-xs text-slate-600">{rawCount} occurrences</p>
                 )}
               </div>
             );

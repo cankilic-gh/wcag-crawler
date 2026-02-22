@@ -154,15 +154,30 @@ export function CrawlProgress({ scanId }: CrawlProgressProps) {
         {/* Phase indicator */}
         <div className="card">
           <h3 className="font-heading font-medium mb-4">Phase</h3>
-          <div className="flex items-center justify-between">
-            {['crawling', 'scanning', 'analyzing', 'complete'].map((phase, index) => {
-              const labels = ['Crawl', 'Scan', 'Analyze', 'Done'];
-              const currentIndex = ['crawling', 'scanning', 'analyzing', 'complete'].indexOf(status);
-              return (
-                <div key={phase} className="flex items-center flex-1 last:flex-none">
-                  <div className="flex flex-col items-center">
+          <div className="relative">
+            {/* Connecting lines - positioned behind circles */}
+            <div className="absolute top-5 left-0 right-0 flex items-center px-5">
+              {[0, 1, 2].map((lineIndex) => {
+                const currentIndex = ['crawling', 'scanning', 'analyzing', 'complete'].indexOf(status);
+                return (
+                  <div
+                    key={lineIndex}
+                    className={`flex-1 h-0.5 ${
+                      currentIndex > lineIndex ? 'bg-success' : 'bg-border'
+                    }`}
+                  />
+                );
+              })}
+            </div>
+            {/* Phase circles */}
+            <div className="relative flex items-start justify-between">
+              {['crawling', 'scanning', 'analyzing', 'complete'].map((phase, index) => {
+                const labels = ['Crawl', 'Scan', 'Analyze', 'Done'];
+                const currentIndex = ['crawling', 'scanning', 'analyzing', 'complete'].indexOf(status);
+                return (
+                  <div key={phase} className="flex flex-col items-center">
                     <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
+                      className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold z-10 ${
                         status === phase
                           ? 'bg-primary text-white'
                           : currentIndex > index
@@ -174,16 +189,9 @@ export function CrawlProgress({ scanId }: CrawlProgressProps) {
                     </div>
                     <span className="text-xs text-slate-500 mt-2">{labels[index]}</span>
                   </div>
-                  {index < 3 && (
-                    <div
-                      className={`flex-1 h-0.5 mx-3 ${
-                        currentIndex > index ? 'bg-success' : 'bg-border'
-                      }`}
-                    />
-                  )}
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
