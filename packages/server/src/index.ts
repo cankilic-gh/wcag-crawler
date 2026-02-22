@@ -13,18 +13,35 @@ const PORT = process.env.PORT || 3001;
 const app = express();
 const httpServer = createServer(app);
 
+// CORS configuration
+const allowedOrigins = process.env.CLIENT_URL
+  ? process.env.CLIENT_URL.split(',').map(url => url.trim())
+  : ['http://localhost:5173'];
+
+const corsOptions = {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+    if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+  credentials: true,
+};
+
 // Initialize Socket.IO
 const io = new SocketServer(httpServer, {
-  cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
-    methods: ['GET', 'POST'],
-  },
+  cors: corsOptions,
 });
 
 // Middleware
-app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
-}));
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Health check

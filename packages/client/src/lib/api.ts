@@ -1,8 +1,10 @@
 import axios from 'axios';
 import type { Scan, ScanConfig, FullReport } from '../types';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: `${API_BASE_URL}/api`,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -47,7 +49,7 @@ export const reportApi = {
     return response.data;
   },
 
-  exportUrl: (scanId: string) => `/api/reports/${scanId}/export`,
+  exportUrl: (scanId: string) => `${API_BASE_URL}/api/reports/${scanId}/export`,
 };
 
 export default api;
