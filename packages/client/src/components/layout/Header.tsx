@@ -1,19 +1,31 @@
 import { Link } from 'react-router-dom';
-import { Accessibility } from 'lucide-react';
+import { Accessibility, History } from 'lucide-react';
 
 export function Header() {
   return (
-    <header className="fixed top-0 left-0 right-0 h-16 bg-surface/80 backdrop-blur-md border-b border-border z-50">
-      <div className="h-full px-6 flex items-center">
-        <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-          <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
-            <Accessibility className="w-6 h-6 text-primary" />
+    <header className="fixed top-6 left-1/2 -translate-x-1/2 z-50">
+      <div className="floating-header px-4 py-2 flex items-center gap-6">
+        {/* Logo */}
+        <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+            <Accessibility className="w-5 h-5 text-white" />
           </div>
-          <div>
-            <h1 className="font-heading text-lg font-bold text-white">WCAG Crawler</h1>
-            <p className="text-xs text-slate-400">WCAG 2.1 AA Scanner</p>
-          </div>
+          <span className="font-semibold text-foreground">WCAG Crawler</span>
         </Link>
+
+        {/* Divider */}
+        <div className="w-px h-6 bg-border" />
+
+        {/* Nav Links */}
+        <nav className="flex items-center gap-1">
+          <Link
+            to="/history"
+            className="btn btn-ghost text-sm gap-2 px-3 py-1.5"
+          >
+            <History className="w-4 h-4" />
+            History
+          </Link>
+        </nav>
       </div>
     </header>
   );

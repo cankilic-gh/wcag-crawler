@@ -27,7 +27,6 @@ export function ScanHistoryPage() {
       .list(500)
       .then((data) => {
         if (Array.isArray(data)) {
-          // Filter to only show user's own scans
           const filtered = data.filter(scan => myScans.includes(scan.id));
           setScans(filtered);
         }
@@ -44,7 +43,6 @@ export function ScanHistoryPage() {
       scanStorage.remove(id);
       setScans(scans.filter((s) => s.id !== id));
     } catch (error) {
-      // Even if API fails, remove from local storage
       scanStorage.remove(id);
       setScans(scans.filter((s) => s.id !== id));
     }
@@ -63,14 +61,14 @@ export function ScanHistoryPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+        <Loader2 className="w-8 h-8 text-foreground-muted animate-spin" />
       </div>
     );
   }
 
   return (
     <div>
-      <h1 className="text-2xl font-heading font-bold text-white mb-6">
+      <h1 className="text-2xl font-heading font-bold text-foreground mb-6">
         Scan History
       </h1>
 
@@ -90,22 +88,22 @@ export function ScanHistoryPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
-                <th className="text-left py-3 px-4 text-sm font-medium text-slate-400">
+                <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">
                   URL
                 </th>
-                <th className="text-center py-3 px-4 text-sm font-medium text-slate-400">
+                <th className="text-center py-3 px-4 text-sm font-medium text-foreground-muted">
                   Score
                 </th>
-                <th className="text-center py-3 px-4 text-sm font-medium text-slate-400">
+                <th className="text-center py-3 px-4 text-sm font-medium text-foreground-muted">
                   Pages
                 </th>
-                <th className="text-center py-3 px-4 text-sm font-medium text-slate-400">
+                <th className="text-center py-3 px-4 text-sm font-medium text-foreground-muted">
                   Issues
                 </th>
-                <th className="text-center py-3 px-4 text-sm font-medium text-slate-400">
+                <th className="text-center py-3 px-4 text-sm font-medium text-foreground-muted">
                   Status
                 </th>
-                <th className="text-right py-3 px-4 text-sm font-medium text-slate-400">
+                <th className="text-right py-3 px-4 text-sm font-medium text-foreground-muted">
                   Date
                 </th>
                 <th className="w-12"></th>
@@ -115,7 +113,7 @@ export function ScanHistoryPage() {
               {scans.map((scan) => (
                 <tr
                   key={scan.id}
-                  className="border-b border-border/50 hover:bg-background/50 transition-colors"
+                  className="border-b border-border/50 hover:bg-muted/50 transition-colors"
                 >
                   <td className="py-3 px-4">
                     <Link
@@ -124,7 +122,7 @@ export function ScanHistoryPage() {
                           ? `/scans/${scan.id}/report`
                           : `/scans/${scan.id}/progress`
                       }
-                      className="text-white hover:text-primary transition-colors truncate block max-w-xs"
+                      className="text-foreground hover:text-accent transition-colors truncate block max-w-xs"
                     >
                       {scan.root_url}
                     </Link>
@@ -143,35 +141,35 @@ export function ScanHistoryPage() {
                         {scan.score}
                       </span>
                     ) : (
-                      <span className="text-slate-500">—</span>
+                      <span className="text-foreground-muted">—</span>
                     )}
                   </td>
-                  <td className="py-3 px-4 text-center text-slate-300">
+                  <td className="py-3 px-4 text-center text-foreground">
                     {scan.total_pages}
                   </td>
-                  <td className="py-3 px-4 text-center text-slate-300">
+                  <td className="py-3 px-4 text-center text-foreground">
                     {scan.total_issues || 0}
                   </td>
                   <td className="py-3 px-4 text-center">
                     <span
-                      className={`text-xs px-2 py-1 rounded capitalize ${
+                      className={`badge ${
                         scan.status === 'complete'
-                          ? 'bg-success/20 text-success'
+                          ? 'badge-success'
                           : scan.status === 'failed'
-                          ? 'bg-critical/20 text-critical'
-                          : 'bg-primary/20 text-primary'
-                      }`}
+                          ? 'badge-critical'
+                          : 'badge-accent'
+                      } capitalize`}
                     >
                       {scan.status}
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-right text-sm text-slate-400">
+                  <td className="py-3 px-4 text-right text-sm text-foreground-muted">
                     {formatDate(scan.created_at)}
                   </td>
                   <td className="py-3 px-4">
                     <button
                       onClick={() => handleDelete(scan.id)}
-                      className="p-2 rounded-lg hover:bg-critical/20 text-slate-400 hover:text-critical transition-colors"
+                      className="p-2 rounded-lg hover:bg-critical/10 text-foreground-muted hover:text-critical transition-colors"
                       title="Delete scan"
                     >
                       <Trash2 className="w-4 h-4" />
