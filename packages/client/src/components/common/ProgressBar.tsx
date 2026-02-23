@@ -17,7 +17,7 @@ export function ProgressBar({ value, max = 100, className = '', showLabel = true
         />
       </div>
       {showLabel && (
-        <span className="absolute right-0 -top-6 text-sm text-slate-400 font-mono">
+        <span className="absolute right-0 -top-6 text-sm text-foreground-muted font-mono">
           {percentage}%
         </span>
       )}

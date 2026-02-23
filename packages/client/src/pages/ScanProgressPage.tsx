@@ -55,7 +55,7 @@ export function ScanProgressPage() {
       <div className="flex items-center justify-between mb-6">
         <button
           onClick={() => navigate('/')}
-          className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
+          className="flex items-center gap-2 text-foreground-muted hover:text-foreground transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
           <span>Back</span>
@@ -73,7 +73,7 @@ export function ScanProgressPage() {
       </div>
 
       <div className="flex items-center gap-4 mb-6">
-        <h1 className="text-2xl font-heading font-bold text-white">
+        <h1 className="text-2xl font-heading font-bold text-foreground">
           Scan in Progress
         </h1>
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/30">

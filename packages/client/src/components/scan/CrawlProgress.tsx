@@ -68,7 +68,7 @@ export function CrawlProgress({ scanId }: CrawlProgressProps) {
       case 'scanning':
         return <Loader2 className="w-4 h-4 text-primary animate-spin" />;
       default:
-        return <Clock className="w-4 h-4 text-slate-500" />;
+        return <Clock className="w-4 h-4 text-foreground-muted" />;
     }
   };
 
@@ -95,7 +95,7 @@ export function CrawlProgress({ scanId }: CrawlProgressProps) {
       <div className="card h-[500px] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-heading font-medium">Discovered Pages</h3>
-          <span className="text-sm text-slate-400">{totalCount} pages</span>
+          <span className="text-sm text-foreground-muted">{totalCount} pages</span>
         </div>
 
         <div className="flex-1 overflow-y-auto space-y-1">
@@ -106,10 +106,10 @@ export function CrawlProgress({ scanId }: CrawlProgressProps) {
             >
               {getStatusIcon(page.status)}
               <div className="flex-1 min-w-0">
-                <p className="text-sm truncate text-slate-300">
+                <p className="text-sm truncate text-foreground">
                   {page.title || page.url}
                 </p>
-                <p className="text-xs text-slate-500 truncate">{page.url}</p>
+                <p className="text-xs text-foreground-muted truncate">{page.url}</p>
               </div>
               {page.status === 'complete' && page.issueCount > 0 && (
                 <span className="text-xs px-2 py-0.5 rounded bg-critical/20 text-critical">
@@ -120,7 +120,7 @@ export function CrawlProgress({ scanId }: CrawlProgressProps) {
           ))}
 
           {discoveredPages.length === 0 && (
-            <div className="flex items-center justify-center h-full text-slate-500">
+            <div className="flex items-center justify-center h-full text-foreground-muted">
               Waiting for pages...
             </div>
           )}
@@ -134,19 +134,19 @@ export function CrawlProgress({ scanId }: CrawlProgressProps) {
 
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-slate-400">{getPhaseLabel()}</span>
+              <span className="text-sm text-foreground-muted">{getPhaseLabel()}</span>
             </div>
             <ProgressBar value={percentage} />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="p-4 rounded-lg bg-background">
-              <p className="text-2xl font-heading font-bold text-white">{scannedCount}</p>
-              <p className="text-sm text-slate-400">Pages Scanned</p>
+              <p className="text-2xl font-heading font-bold text-foreground">{scannedCount}</p>
+              <p className="text-sm text-foreground-muted">Pages Scanned</p>
             </div>
             <div className="p-4 rounded-lg bg-background">
-              <p className="text-2xl font-heading font-bold text-white">{totalCount}</p>
-              <p className="text-sm text-slate-400">Total Pages</p>
+              <p className="text-2xl font-heading font-bold text-foreground">{totalCount}</p>
+              <p className="text-sm text-foreground-muted">Total Pages</p>
             </div>
           </div>
         </div>
@@ -179,15 +179,15 @@ export function CrawlProgress({ scanId }: CrawlProgressProps) {
                     <div
                       className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold z-10 ${
                         status === phase
-                          ? 'bg-primary text-white'
+                          ? 'bg-primary text-foreground'
                           : currentIndex > index
-                          ? 'bg-success text-white'
-                          : 'bg-border text-slate-500'
+                          ? 'bg-success text-foreground'
+                          : 'bg-border text-foreground-muted'
                       }`}
                     >
                       {index + 1}
                     </div>
-                    <span className="text-xs text-slate-500 mt-2">{labels[index]}</span>
+                    <span className="text-xs text-foreground-muted mt-2">{labels[index]}</span>
                   </div>
                 );
               })}

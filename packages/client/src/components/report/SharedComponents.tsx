@@ -24,8 +24,8 @@ export function SharedComponents({ components }: SharedComponentsProps) {
   if (components.length === 0) {
     return (
       <div className="card text-center py-12">
-        <p className="text-slate-400">No shared component issues detected.</p>
-        <p className="text-sm text-slate-500 mt-1">
+        <p className="text-foreground-muted">No shared component issues detected.</p>
+        <p className="text-sm text-foreground-muted mt-1">
           All issues are page-specific.
         </p>
       </div>
@@ -42,25 +42,25 @@ export function SharedComponents({ components }: SharedComponentsProps) {
           >
             <div className="flex items-center gap-3">
               {expanded.has(component.id) ? (
-                <ChevronDown className="w-5 h-5 text-slate-400" />
+                <ChevronDown className="w-5 h-5 text-foreground-muted" />
               ) : (
-                <ChevronRight className="w-5 h-5 text-slate-400" />
+                <ChevronRight className="w-5 h-5 text-foreground-muted" />
               )}
               <span className="text-xl">
                 {REGION_ICONS[component.region as keyof typeof REGION_ICONS] || '❓'}
               </span>
               <div className="text-left">
-                <h3 className="font-heading font-medium text-white">
+                <h3 className="font-heading font-medium text-foreground">
                   {component.label}
                 </h3>
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-foreground-muted">
                   Found on {component.pageCount} pages
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-4">
-              <span className="text-sm text-slate-400">
+              <span className="text-sm text-foreground-muted">
                 {component.issues.length} issues
               </span>
             </div>
@@ -69,7 +69,7 @@ export function SharedComponents({ components }: SharedComponentsProps) {
           {expanded.has(component.id) && (
             <div className="mt-4 pt-4 border-t border-border space-y-3">
               {component.issues.length === 0 ? (
-                <p className="text-sm text-slate-500 text-center py-4">
+                <p className="text-sm text-foreground-muted text-center py-4">
                   No accessibility issues found in this component.
                 </p>
               ) : (
