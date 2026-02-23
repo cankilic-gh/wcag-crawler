@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, ExternalLink, Code2, Copy, Check, Lightbulb, ArrowRight, FileText } from 'lucide-react';
+import { ChevronDown, ChevronRight, ExternalLink, Code2, Copy, Check, Lightbulb, AlertCircle, FileText } from 'lucide-react';
 import type { Issue } from '../../types';
 import { SeverityBadge } from '../common/SeverityBadge';
 import { getFixSuggestion } from '../../lib/fixSuggestions';
@@ -18,6 +18,61 @@ function parseFixSuggestions(summary: string): string[] {
     .map(s => s.trim())
     .filter(s => s.length > 10);
   return fixes.length > 0 ? fixes : [summary];
+}
+
+// Extract problematic attribute from fix message and HTML snippet
+function extractProblem(htmlSnippet: string, ruleId: string, failureSummary: string): {
+  attribute: string | null;
+  currentValue: string | null;
+  suggestion: string | null;
+} {
+  // Common attribute patterns based on rule
+  const attrPatterns: Record<string, string[]> = {
+    'autocomplete-valid': ['autocomplete'],
+    'aria-valid-attr-value': ['aria-'],
+    'aria-valid-attr': ['aria-'],
+    'color-contrast': ['color', 'background'],
+    'label': ['id', 'for'],
+    'image-alt': ['alt'],
+    'link-name': ['aria-label', 'href'],
+    'button-name': ['aria-label'],
+  };
+
+  const patterns = attrPatterns[ruleId] || [];
+
+  for (const pattern of patterns) {
+    const regex = new RegExp(`(${pattern}[\\w-]*)=["']([^"']*)["']`, 'i');
+    const match = htmlSnippet.match(regex);
+    if (match) {
+      return {
+        attribute: match[1],
+        currentValue: match[2],
+        suggestion: getSuggestionForAttr(match[1], failureSummary),
+      };
+    }
+  }
+
+  return { attribute: null, currentValue: null, suggestion: null };
+}
+
+// Get suggestion based on attribute type
+function getSuggestionForAttr(attr: string, _failureSummary: string): string | null {
+  const suggestions: Record<string, string> = {
+    'autocomplete': 'name, email, tel, address-line1, address-level2, postal-code',
+    'aria-hidden': 'true or false',
+    'aria-expanded': 'true or false',
+    'aria-label': 'Descriptive text for the element',
+    'alt': 'Description of the image content',
+    'lang': 'en, en-US, es, fr, de, ja',
+    'role': 'button, link, dialog, alert, tab, tabpanel',
+  };
+
+  for (const [key, value] of Object.entries(suggestions)) {
+    if (attr.toLowerCase().includes(key)) {
+      return value;
+    }
+  }
+  return null;
 }
 
 // Find lines that differ between before and after
@@ -241,25 +296,78 @@ export function IssueCard({ issue, showAffectedPages = false }: IssueCardProps) 
               </div>
             )}
 
-            {/* Fallback fix suggestions */}
-            {!fixSuggestion && fixes.length > 0 && (
-              <div className="p-4 bg-accent/5 border-t border-border">
-                <div className="flex items-center gap-2 mb-3">
-                  <Lightbulb className="w-4 h-4 text-accent" />
-                  <span className="text-xs font-semibold text-accent uppercase tracking-wide">
-                    How to Fix
-                  </span>
+            {/* Fallback fix suggestions - Enhanced UI */}
+            {!fixSuggestion && fixes.length > 0 && (() => {
+              const problem = extractProblem(issue.htmlSnippet || '', issue.ruleId, issue.failureSummary || '');
+
+              return (
+                <div className="border-t border-border">
+                  {/* Two column layout: Issue / Solution */}
+                  <div className="grid grid-cols-2 divide-x divide-border">
+                    {/* Issue Column */}
+                    <div className="p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <AlertCircle className="w-4 h-4 text-critical" />
+                        <span className="text-xs font-semibold text-critical uppercase tracking-wide">
+                          Issue Found
+                        </span>
+                      </div>
+                      {problem.attribute && problem.currentValue !== null ? (
+                        <div className="space-y-3">
+                          <div className="p-3 rounded-lg bg-critical/5 border border-critical/20">
+                            <p className="text-xs text-foreground-muted mb-1">Problematic attribute:</p>
+                            <code className="text-sm font-code text-critical">
+                              {problem.attribute}="{problem.currentValue}"
+                            </code>
+                          </div>
+                          <p className="text-sm text-foreground-muted">{fixes[0]}</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {fixes.map((fix, i) => (
+                            <p key={i} className="text-sm text-foreground">{fix}</p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Solution Column */}
+                    <div className="p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Lightbulb className="w-4 h-4 text-success" />
+                        <span className="text-xs font-semibold text-success uppercase tracking-wide">
+                          How to Fix
+                        </span>
+                      </div>
+                      <div className="space-y-3">
+                        {problem.attribute && problem.suggestion && (
+                          <div className="p-3 rounded-lg bg-success/5 border border-success/20">
+                            <p className="text-xs text-foreground-muted mb-1">Valid values for <code className="font-code">{problem.attribute}</code>:</p>
+                            <code className="text-sm font-code text-success">
+                              {problem.suggestion}
+                            </code>
+                          </div>
+                        )}
+                        <ul className="space-y-2">
+                          <li className="flex items-start gap-2 text-sm text-foreground">
+                            <span className="w-5 h-5 rounded-full bg-success/10 text-success text-xs flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
+                            <span>Identify the element with the issue</span>
+                          </li>
+                          <li className="flex items-start gap-2 text-sm text-foreground">
+                            <span className="w-5 h-5 rounded-full bg-success/10 text-success text-xs flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
+                            <span>{problem.attribute ? `Update the ${problem.attribute} attribute` : 'Apply the suggested fix'}</span>
+                          </li>
+                          <li className="flex items-start gap-2 text-sm text-foreground">
+                            <span className="w-5 h-5 rounded-full bg-success/10 text-success text-xs flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
+                            <span>Test with a screen reader or accessibility tool</span>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <ul className="space-y-2">
-                  {fixes.map((fix, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-foreground">
-                      <ArrowRight className="w-3.5 h-3.5 text-accent mt-0.5 flex-shrink-0" />
-                      <span>{fix}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Affected Pages */}
             {issue.affectedPageUrls && issue.affectedPageUrls.length > 0 && (

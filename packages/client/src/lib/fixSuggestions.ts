@@ -341,6 +341,103 @@ export const FIX_SUGGESTIONS: Record<string, FixSuggestion> = {
   <div role="tab">Tab 1</div>
 </div>`,
   },
+
+  'autocomplete-valid': {
+    ruleId: 'autocomplete-valid',
+    problem: 'The autocomplete attribute value is not valid or incorrectly formatted',
+    solution: 'Use valid autocomplete tokens in the correct order: [section-*] [shipping|billing] [type]',
+    before: `<input type="text" autocomplete="section-birth place-city">
+<!-- Invalid: "place-city" is not a valid token -->`,
+    after: `<input type="text" autocomplete="address-level2">
+<!-- Valid tokens for city -->
+
+<!-- Common valid values: -->
+<!-- name, email, tel, street-address -->
+<!-- address-line1, address-level1 (state) -->
+<!-- address-level2 (city), postal-code -->`,
+  },
+
+  'input-image-alt': {
+    ruleId: 'input-image-alt',
+    problem: 'Image input button does not have alt text',
+    solution: 'Add an alt attribute describing the button action',
+    before: `<input type="image" src="submit.png">`,
+    after: `<input type="image" src="submit.png" alt="Submit form">`,
+  },
+
+  'aria-valid-attr-value': {
+    ruleId: 'aria-valid-attr-value',
+    problem: 'ARIA attribute has an invalid value',
+    solution: 'Use a valid value for the ARIA attribute',
+    before: `<div aria-hidden="yes">Hidden</div>
+<div aria-expanded="open">Menu</div>`,
+    after: `<div aria-hidden="true">Hidden</div>
+<div aria-expanded="true">Menu</div>
+<!-- Boolean ARIA attrs use "true"/"false" -->`,
+  },
+
+  'aria-valid-attr': {
+    ruleId: 'aria-valid-attr',
+    problem: 'ARIA attribute is not valid',
+    solution: 'Use a valid ARIA attribute name',
+    before: `<button aria-labelled="menu">Menu</button>`,
+    after: `<button aria-labelledby="menu">Menu</button>
+<!-- Or use aria-label -->
+<button aria-label="Menu">Menu</button>`,
+  },
+
+  'scrollable-region-focusable': {
+    ruleId: 'scrollable-region-focusable',
+    problem: 'Scrollable region is not keyboard accessible',
+    solution: 'Add tabindex="0" to make the scrollable region focusable',
+    before: `<div style="overflow: auto; height: 200px;">
+  Long content...
+</div>`,
+    after: `<div tabindex="0" style="overflow: auto; height: 200px;">
+  Long content...
+</div>`,
+  },
+
+  'td-headers-attr': {
+    ruleId: 'td-headers-attr',
+    problem: 'Table cell headers attribute refers to invalid id',
+    solution: 'Ensure headers attribute references valid th ids',
+    before: `<table>
+  <tr><th id="name">Name</th></tr>
+  <tr><td headers="names">John</td></tr>
+</table>`,
+    after: `<table>
+  <tr><th id="name">Name</th></tr>
+  <tr><td headers="name">John</td></tr>
+</table>`,
+  },
+
+  'scope-attr-valid': {
+    ruleId: 'scope-attr-valid',
+    problem: 'Scope attribute has invalid value',
+    solution: 'Use valid scope values: row, col, rowgroup, colgroup',
+    before: `<th scope="column">Header</th>`,
+    after: `<th scope="col">Header</th>
+<!-- Valid: row, col, rowgroup, colgroup -->`,
+  },
+
+  'valid-lang': {
+    ruleId: 'valid-lang',
+    problem: 'Lang attribute has invalid value',
+    solution: 'Use a valid BCP 47 language code',
+    before: `<html lang="english">`,
+    after: `<html lang="en">
+<!-- Examples: en, en-US, es, fr, de, ja -->`,
+  },
+
+  'aria-roles': {
+    ruleId: 'aria-roles',
+    problem: 'ARIA role is not valid',
+    solution: 'Use a valid ARIA role value',
+    before: `<div role="modal">Dialog</div>`,
+    after: `<div role="dialog" aria-modal="true">Dialog</div>
+<!-- Common roles: button, link, dialog, alert -->`,
+  },
 };
 
 export function getFixSuggestion(ruleId: string): FixSuggestion | null {
