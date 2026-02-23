@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, ExternalLink, Code2, Copy, Check, Lightbulb,
 import type { Issue } from '../../types';
 import { SeverityBadge } from '../common/SeverityBadge';
 import { getFixSuggestion } from '../../lib/fixSuggestions';
+import { CodeBlock } from './CodeBlock';
 
 interface IssueCardProps {
   issue: Issue;
@@ -17,6 +18,17 @@ function parseFixSuggestions(summary: string): string[] {
     .map(s => s.trim())
     .filter(s => s.length > 10);
   return fixes.length > 0 ? fixes : [summary];
+}
+
+// Find lines that differ between before and after
+function findDiffLines(before: string, after: string): { beforeDiff: string[]; afterDiff: string[] } {
+  const beforeLines = before.split('\n').map(l => l.trim()).filter(Boolean);
+  const afterLines = after.split('\n').map(l => l.trim()).filter(Boolean);
+
+  const beforeDiff = beforeLines.filter(line => !afterLines.includes(line));
+  const afterDiff = afterLines.filter(line => !beforeLines.includes(line));
+
+  return { beforeDiff, afterDiff };
 }
 
 export function IssueCard({ issue, showAffectedPages = false }: IssueCardProps) {
@@ -159,6 +171,10 @@ export function IssueCard({ issue, showAffectedPages = false }: IssueCardProps) 
       {/* Expanded details */}
       {expanded && (() => {
         const fixSuggestion = getFixSuggestion(issue.ruleId);
+        const diffLines = fixSuggestion
+          ? findDiffLines(fixSuggestion.before, fixSuggestion.after)
+          : { beforeDiff: [], afterDiff: [] };
+
         return (
           <div className="border-t border-border">
             {/* Problem & Solution */}
@@ -175,49 +191,51 @@ export function IssueCard({ issue, showAffectedPages = false }: IssueCardProps) 
               </div>
             )}
 
-            {/* Your Code - Dark terminal style */}
+            {/* Your Code */}
             {issue.htmlSnippet && (
-              <div className="p-4 bg-[#1e1e2e] border-t border-border">
+              <div className="p-4 border-t border-border">
                 <div className="flex items-center gap-2 mb-3">
-                  <Code2 className="w-4 h-4 text-slate-400" />
-                  <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">
+                  <Code2 className="w-4 h-4 text-foreground-muted" />
+                  <span className="text-xs font-medium text-foreground-muted uppercase tracking-wide">
                     Your Code
                   </span>
                 </div>
-                <pre className="text-sm font-code text-slate-300 whitespace-pre-wrap overflow-x-auto leading-relaxed">
-                  <code dangerouslySetInnerHTML={{ __html: highlightHtml(issue.htmlSnippet) }} />
-                </pre>
+                <CodeBlock code={issue.htmlSnippet} variant="neutral" />
               </div>
             )}
 
-            {/* Before / After Examples - Dark code blocks */}
+            {/* Before / After Examples */}
             {fixSuggestion && (
               <div className="border-t border-border">
-                <div className="grid grid-cols-2">
+                <div className="grid grid-cols-2 divide-x divide-border">
                   {/* Before */}
-                  <div className="p-4 bg-[#1e1e2e] border-r border-border">
+                  <div className="p-4">
                     <div className="flex items-center gap-2 mb-3">
                       <span className="w-2 h-2 rounded-full bg-critical"></span>
                       <span className="text-xs font-semibold text-critical uppercase tracking-wide">
                         Before (Wrong)
                       </span>
                     </div>
-                    <pre className="text-sm font-code text-slate-300 whitespace-pre-wrap overflow-x-auto leading-relaxed">
-                      <code dangerouslySetInnerHTML={{ __html: highlightHtml(fixSuggestion.before) }} />
-                    </pre>
+                    <CodeBlock
+                      code={fixSuggestion.before}
+                      variant="before"
+                      diffLines={diffLines.beforeDiff}
+                    />
                   </div>
 
                   {/* After */}
-                  <div className="p-4 bg-[#1e1e2e]">
+                  <div className="p-4">
                     <div className="flex items-center gap-2 mb-3">
                       <span className="w-2 h-2 rounded-full bg-success"></span>
                       <span className="text-xs font-semibold text-success uppercase tracking-wide">
                         After (Correct)
                       </span>
                     </div>
-                    <pre className="text-sm font-code text-slate-300 whitespace-pre-wrap overflow-x-auto leading-relaxed">
-                      <code dangerouslySetInnerHTML={{ __html: highlightHtml(fixSuggestion.after) }} />
-                    </pre>
+                    <CodeBlock
+                      code={fixSuggestion.after}
+                      variant="after"
+                      diffLines={diffLines.afterDiff}
+                    />
                   </div>
                 </div>
               </div>
@@ -299,17 +317,4 @@ export function IssueCard({ issue, showAffectedPages = false }: IssueCardProps) 
       })()}
     </div>
   );
-}
-
-// Simple HTML syntax highlighting
-function highlightHtml(code: string): string {
-  return code
-    // Escape HTML first
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    // Then apply highlighting
-    .replace(/(&lt;\/?)([\w-]+)/g, '<span class="text-pink-400">$1</span><span class="text-blue-400">$2</span>')
-    .replace(/([\w-]+)(=)/g, '<span class="text-purple-400">$1</span><span class="text-slate-400">$2</span>')
-    .replace(/(".*?")/g, '<span class="text-green-400">$1</span>');
 }
