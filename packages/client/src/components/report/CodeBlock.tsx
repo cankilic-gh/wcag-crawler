@@ -114,16 +114,16 @@ export function CodeBlock({ code, variant = 'neutral', diffLines = [] }: CodeBlo
   };
 
   return (
-    <div className="rounded-lg bg-[#1e1e2e] overflow-hidden font-code text-sm">
-      <div className="overflow-x-auto">
-        <table className="w-full">
+    <div className="rounded-xl bg-[#1e1e2e] overflow-hidden font-code">
+      <div className="overflow-x-auto max-h-64 overflow-y-auto code-scrollbar">
+        <table className="w-full text-[13px] leading-relaxed">
           <tbody>
             {highlightedLines.map((line, idx) => (
               <tr key={idx} className={getLineHighlight(line.isDiffLine)}>
-                <td className="px-3 py-0.5 text-right text-slate-600 select-none w-8 text-xs">
+                <td className="pl-4 pr-3 py-1.5 text-right text-slate-500 select-none w-10 text-xs sticky left-0 bg-[#1e1e2e]">
                   {line.lineNumber}
                 </td>
-                <td className="px-3 py-0.5 whitespace-pre">
+                <td className="pr-4 py-1.5 whitespace-pre">
                   {line.tokens.map((token, tidx) => (
                     <span key={tidx} className={TOKEN_COLORS[token.type] || 'text-slate-300'}>
                       {token.value}

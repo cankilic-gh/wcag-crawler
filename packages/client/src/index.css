@@ -123,3 +123,26 @@
 ::selection {
   @apply bg-accent/20 text-foreground;
 }
+
+/* Dark code block scrollbar */
+.code-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.code-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.code-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+.code-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.code-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
+}
