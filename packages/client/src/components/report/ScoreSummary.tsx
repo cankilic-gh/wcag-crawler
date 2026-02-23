@@ -8,9 +8,9 @@ interface ScoreSummaryProps {
 
 export function ScoreSummary({ summary }: ScoreSummaryProps) {
   const getScoreColor = (score: number) => {
-    if (score >= 80) return '#22c55e';
-    if (score >= 50) return '#eab308';
-    return '#ef4444';
+    if (score >= 80) return '#16a34a';
+    if (score >= 50) return '#ca8a04';
+    return '#dc2626';
   };
 
   const scoreData = [
@@ -31,25 +31,25 @@ export function ScoreSummary({ summary }: ScoreSummaryProps) {
     (summary.ruleCountBySeverity?.minor || 0);
 
   return (
-    <div className="grid grid-cols-4 gap-6">
+    <div className="grid grid-cols-4 gap-4">
       {/* Score donut */}
-      <div className="card flex flex-col items-center justify-center">
-        <div className="relative w-32 h-32">
+      <div className="card flex flex-col items-center justify-center py-6">
+        <div className="relative w-28 h-28">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
                 data={scoreData}
                 cx="50%"
                 cy="50%"
-                innerRadius={40}
-                outerRadius={55}
+                innerRadius={38}
+                outerRadius={50}
                 startAngle={90}
                 endAngle={-270}
                 paddingAngle={0}
                 dataKey="value"
               >
                 <Cell fill={getScoreColor(summary.score)} />
-                <Cell fill="#1e1e2e" />
+                <Cell fill="#e8e4dc" />
               </Pie>
             </PieChart>
           </ResponsiveContainer>
@@ -62,37 +62,39 @@ export function ScoreSummary({ summary }: ScoreSummaryProps) {
             </span>
           </div>
         </div>
-        <p className="text-sm text-slate-400 mt-2">Accessibility Score</p>
+        <p className="text-sm text-foreground-muted mt-2">Accessibility Score</p>
       </div>
 
       {/* Metrics */}
       <div className="card">
-        <p className="text-3xl font-heading font-bold text-white">{summary.totalPages}</p>
-        <p className="text-sm text-slate-400">Pages Scanned</p>
+        <p className="text-3xl font-heading font-bold text-foreground">{summary.totalPages}</p>
+        <p className="text-sm text-foreground-muted">Pages Scanned</p>
         <div className="mt-4 pt-4 border-t border-border">
-          <p className="text-xl font-heading font-bold text-white">{summary.totalIssuesDeduplicated}</p>
-          <p className="text-xs text-slate-400">Unique Issues</p>
+          <p className="text-xl font-heading font-bold text-foreground">{summary.totalIssuesDeduplicated}</p>
+          <p className="text-xs text-foreground-muted">Unique Issues</p>
         </div>
       </div>
 
       {/* Severity breakdown */}
       <div className="card col-span-2">
         <div className="flex items-center justify-between mb-4">
-          <p className="text-sm text-slate-400">Issues by Severity</p>
-          <p className="text-sm text-slate-500">{totalIssues} unique {totalIssues === 1 ? 'issue' : 'issues'}</p>
+          <p className="text-sm text-foreground-muted">Issues by Severity</p>
+          <p className="text-sm text-foreground">{totalIssues} unique {totalIssues === 1 ? 'issue' : 'issues'}</p>
         </div>
 
         {/* Severity bar */}
-        <div className="flex h-4 rounded-lg overflow-hidden mb-4">
+        <div className="flex h-3 rounded-full overflow-hidden mb-4 bg-muted">
           {severityData.map((item) => (
-            <div
-              key={item.name}
-              style={{
-                width: `${(item.value / totalIssues) * 100}%`,
-                backgroundColor: item.color,
-              }}
-              className="transition-all duration-500"
-            />
+            item.value > 0 && (
+              <div
+                key={item.name}
+                style={{
+                  width: `${(item.value / totalIssues) * 100}%`,
+                  backgroundColor: item.color,
+                }}
+                className="transition-all duration-500"
+              />
+            )
           ))}
         </div>
 
@@ -108,9 +110,9 @@ export function ScoreSummary({ summary }: ScoreSummaryProps) {
                 >
                   {item.value}
                 </p>
-                <p className="text-xs text-slate-500">{item.value === 1 ? 'Issue' : 'Issues'}</p>
+                <p className="text-xs text-foreground-muted">{item.value === 1 ? 'Issue' : 'Issues'}</p>
                 {rawCount > item.value && (
-                  <p className="text-xs text-slate-600">{rawCount} occurrences</p>
+                  <p className="text-xs text-foreground-muted/60">{rawCount} occurrences</p>
                 )}
               </div>
             );

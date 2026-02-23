@@ -1,27 +1,27 @@
 export const SEVERITY_COLORS = {
   critical: {
-    bg: 'bg-critical/20',
+    bg: 'bg-critical/10',
     text: 'text-critical',
-    border: 'border-critical/30',
-    hex: '#ef4444',
+    border: 'border-critical/20',
+    hex: '#dc2626',
   },
   serious: {
-    bg: 'bg-serious/20',
+    bg: 'bg-serious/10',
     text: 'text-serious',
-    border: 'border-serious/30',
-    hex: '#f97316',
+    border: 'border-serious/20',
+    hex: '#ea580c',
   },
   moderate: {
-    bg: 'bg-moderate/20',
+    bg: 'bg-moderate/10',
     text: 'text-moderate',
-    border: 'border-moderate/30',
-    hex: '#eab308',
+    border: 'border-moderate/20',
+    hex: '#ca8a04',
   },
   minor: {
-    bg: 'bg-minor/20',
+    bg: 'bg-minor/10',
     text: 'text-minor',
-    border: 'border-minor/30',
-    hex: '#3b82f6',
+    border: 'border-minor/20',
+    hex: '#2563eb',
   },
 } as const;
 

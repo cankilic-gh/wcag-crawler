@@ -3,18 +3,16 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Download, Loader2, RefreshCw, Filter } from 'lucide-react';
 import { reportApi, scanApi } from '../lib/api';
 import { ScoreSummary } from '../components/report/ScoreSummary';
-import { SharedComponents } from '../components/report/SharedComponents';
 import { PageIssues } from '../components/report/PageIssues';
 import type { FullReport, Issue } from '../types';
 
-type TabType = 'shared' | 'pages' | 'rules';
 type SeverityFilter = 'critical' | 'serious' | 'moderate' | 'minor';
 
-const SEVERITY_CONFIG: Record<SeverityFilter, { label: string; color: string; bgColor: string; activeBg: string }> = {
-  critical: { label: 'Critical', color: 'text-critical', bgColor: 'bg-critical/20', activeBg: 'bg-critical/30 border border-critical/50' },
-  serious: { label: 'Serious', color: 'text-serious', bgColor: 'bg-serious/20', activeBg: 'bg-serious/30 border border-serious/50' },
-  moderate: { label: 'Moderate', color: 'text-moderate', bgColor: 'bg-moderate/20', activeBg: 'bg-moderate/30 border border-moderate/50' },
-  minor: { label: 'Minor', color: 'text-minor', bgColor: 'bg-minor/20', activeBg: 'bg-minor/30 border border-minor/50' },
+const SEVERITY_CONFIG: Record<SeverityFilter, { label: string; color: string; activeBg: string }> = {
+  critical: { label: 'Critical', color: 'text-critical', activeBg: 'bg-critical text-white' },
+  serious: { label: 'Serious', color: 'text-serious', activeBg: 'bg-serious text-white' },
+  moderate: { label: 'Moderate', color: 'text-foreground-muted', activeBg: 'bg-moderate text-white' },
+  minor: { label: 'Minor', color: 'text-foreground-muted', activeBg: 'bg-minor text-white' },
 };
 
 export function ReportPage() {
@@ -23,9 +21,7 @@ export function ReportPage() {
   const [report, setReport] = useState<FullReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<TabType>('pages');
   const [rescanning, setRescanning] = useState(false);
-  // Default: only Critical and Serious (required WCAG fixes)
   const [severityFilters, setSeverityFilters] = useState<Set<SeverityFilter>>(
     new Set(['critical', 'serious'])
   );
@@ -73,38 +69,37 @@ export function ReportPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  // Filter issues by severity - must be before early returns
-  const filteredReport = useMemo(() => {
-    if (!report) return null;
+  // Filter and combine all issues
+  const filteredPages = useMemo(() => {
+    if (!report) return [];
 
     const filterIssues = (issues: Issue[]) =>
       issues.filter((issue) => severityFilters.has(issue.impact as SeverityFilter));
 
-    const filteredSharedComponents = report.sharedComponents
-      .map((comp) => ({
-        ...comp,
+    // Combine shared components and page-specific issues
+    const allPages = [
+      ...report.sharedComponents.map((comp) => ({
+        url: comp.id,
+        title: `Shared: ${comp.label}`,
         issues: filterIssues(comp.issues),
-      }))
-      .filter((comp) => comp.issues.length > 0);
-
-    const filteredPageIssues = report.pageSpecificIssues
-      .map((page) => ({
+        issueCount: filterIssues(comp.issues).length,
+        isShared: true,
+      })),
+      ...report.pageSpecificIssues.map((page) => ({
         ...page,
         issues: filterIssues(page.issues),
         issueCount: filterIssues(page.issues).length,
-      }))
-      .filter((page) => page.issues.length > 0);
+        isShared: false,
+      })),
+    ].filter((page) => page.issues.length > 0);
 
-    return {
-      sharedComponents: filteredSharedComponents,
-      pageSpecificIssues: filteredPageIssues,
-    };
+    return allPages;
   }, [report, severityFilters]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+        <Loader2 className="w-8 h-8 text-foreground-muted animate-spin" />
       </div>
     );
   }
@@ -120,19 +115,6 @@ export function ReportPage() {
     );
   }
 
-  const tabs = [
-    {
-      id: 'shared' as TabType,
-      label: 'Shared Components',
-      count: filteredReport?.sharedComponents.length || 0,
-    },
-    {
-      id: 'pages' as TabType,
-      label: 'Page-Specific',
-      count: filteredReport?.pageSpecificIssues.length || 0,
-    },
-  ];
-
   return (
     <div>
       {/* Header */}
@@ -140,16 +122,16 @@ export function ReportPage() {
         <div className="flex items-center gap-4">
           <Link
             to="/"
-            className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
+            className="flex items-center gap-2 text-foreground-muted hover:text-foreground transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
             <span>Back</span>
           </Link>
           <div>
-            <h1 className="text-2xl font-heading font-bold text-white">
+            <h1 className="text-2xl font-heading font-bold text-foreground">
               Accessibility Report
             </h1>
-            <p className="text-sm text-slate-400">{report.scan.root_url}</p>
+            <p className="text-sm text-foreground-muted">{report.scan.root_url}</p>
           </div>
         </div>
 
@@ -182,54 +164,28 @@ export function ReportPage() {
         <ScoreSummary summary={report.summary} />
       </div>
 
-      {/* Tabs & Filter */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-1 bg-surface p-1 rounded-lg w-fit">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                activeTab === tab.id
-                  ? 'bg-primary text-white'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              {tab.label}
-              <span
-                className={`ml-2 px-1.5 py-0.5 rounded text-xs ${
-                  activeTab === tab.id
-                    ? 'bg-white/20'
-                    : 'bg-border'
-                }`}
-              >
-                {tab.count}
-              </span>
-            </button>
-          ))}
-        </div>
-
-        {/* Severity Filter */}
+      {/* Filter Row */}
+      <div className="flex items-center justify-between mb-6 p-4 bg-surface rounded-2xl border border-border">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 text-sm text-slate-400">
+          <div className="flex items-center gap-2 text-sm text-foreground-muted">
             <Filter className="w-4 h-4" />
             <span>Filter:</span>
           </div>
-          <div className="flex items-center gap-1 bg-surface p-1 rounded-lg">
+          <div className="flex items-center gap-2">
             {(Object.entries(SEVERITY_CONFIG) as [SeverityFilter, typeof SEVERITY_CONFIG[SeverityFilter]][]).map(
               ([severity, config]) => (
                 <button
                   key={severity}
                   onClick={() => toggleSeverity(severity)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                     severityFilters.has(severity)
-                      ? `${config.activeBg} ${config.color}`
-                      : 'text-slate-500 hover:text-slate-300'
+                      ? config.activeBg
+                      : 'bg-muted text-foreground-muted hover:bg-border'
                   }`}
                 >
                   {config.label}
                   {report && (
-                    <span className="ml-1 opacity-70">
+                    <span className="ml-1 opacity-80">
                       ({report.summary.bySeverity[severity]})
                     </span>
                   )}
@@ -237,32 +193,26 @@ export function ReportPage() {
               )
             )}
           </div>
-          <div className="flex items-center gap-1 text-xs">
-            <button
-              onClick={selectRequiredOnly}
-              className="px-2 py-1 rounded text-slate-400 hover:text-white hover:bg-surface transition-colors"
-            >
-              Required Only
-            </button>
-            <span className="text-slate-600">|</span>
-            <button
-              onClick={selectAllSeverities}
-              className="px-2 py-1 rounded text-slate-400 hover:text-white hover:bg-surface transition-colors"
-            >
-              Show All
-            </button>
-          </div>
+        </div>
+        <div className="flex items-center gap-2 text-xs">
+          <button
+            onClick={selectRequiredOnly}
+            className="px-3 py-1.5 rounded-full text-foreground-muted hover:text-foreground hover:bg-muted transition-colors"
+          >
+            Required Only
+          </button>
+          <span className="text-border">|</span>
+          <button
+            onClick={selectAllSeverities}
+            className="px-3 py-1.5 rounded-full text-foreground-muted hover:text-foreground hover:bg-muted transition-colors"
+          >
+            Show All
+          </button>
         </div>
       </div>
 
-      {/* Tab content */}
-      {activeTab === 'shared' && filteredReport && (
-        <SharedComponents components={filteredReport.sharedComponents} />
-      )}
-
-      {activeTab === 'pages' && filteredReport && (
-        <PageIssues pages={filteredReport.pageSpecificIssues} />
-      )}
+      {/* Issues List */}
+      <PageIssues pages={filteredPages} />
     </div>
   );
 }

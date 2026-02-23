@@ -9,17 +9,13 @@ interface IssueCardProps {
   showAffectedPages?: boolean;
 }
 
-// Parse failure summary into structured fixes
 function parseFixSuggestions(summary: string): string[] {
   if (!summary) return [];
-
-  // Split by common separators
   const fixes = summary
     .replace(/Fix (any|all) of the following:/gi, '')
     .split(/(?:\r?\n|;|\.(?=\s+[A-Z]))/)
     .map(s => s.trim())
     .filter(s => s.length > 10);
-
   return fixes.length > 0 ? fixes : [summary];
 }
 
@@ -40,7 +36,7 @@ export function IssueCard({ issue, showAffectedPages = false }: IssueCardProps) 
 
   return (
     <div
-      className={`rounded-lg bg-background border-l-4 overflow-hidden ${
+      className={`rounded-xl bg-surface border border-border border-l-4 overflow-hidden ${
         issue.impact === 'critical'
           ? 'border-l-critical'
           : issue.impact === 'serious'
@@ -50,7 +46,7 @@ export function IssueCard({ issue, showAffectedPages = false }: IssueCardProps) 
           : 'border-l-minor'
       }`}
     >
-      {/* Header - Always visible */}
+      {/* Header */}
       <div className="p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
@@ -60,33 +56,33 @@ export function IssueCard({ issue, showAffectedPages = false }: IssueCardProps) 
                   href={issue.helpUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-heading font-medium text-white hover:text-primary transition-colors underline decoration-slate-600 hover:decoration-primary"
+                  className="font-heading font-semibold text-foreground hover:text-accent transition-colors underline decoration-border hover:decoration-accent"
                 >
                   {issue.ruleId}
                 </a>
               ) : (
-                <span className="font-heading font-medium text-white">
+                <span className="font-heading font-semibold text-foreground">
                   {issue.ruleId}
                 </span>
               )}
               <SeverityBadge severity={issue.impact} />
               {showAffectedPages && issue.affectedPages && (
-                <span className="text-xs px-2 py-0.5 rounded bg-primary/20 text-primary">
+                <span className="text-xs px-2 py-0.5 rounded-full bg-accent/10 text-accent font-medium">
                   {issue.affectedPages} pages
                 </span>
               )}
             </div>
 
-            <p className="text-sm text-slate-300 mb-3">{issue.description}</p>
+            <p className="text-sm text-foreground mb-3">{issue.description}</p>
 
             <div className="flex flex-wrap items-center gap-3">
               {issue.wcagCriteria && issue.wcagCriteria.length > 0 && (
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-slate-500">WCAG:</span>
+                  <span className="text-xs text-foreground-muted">WCAG:</span>
                   {issue.wcagCriteria.map((criterion) => (
                     <span
                       key={criterion}
-                      className="text-xs px-1.5 py-0.5 rounded bg-border text-slate-300 font-medium"
+                      className="text-xs px-1.5 py-0.5 rounded bg-muted text-foreground font-medium"
                     >
                       {criterion}
                     </span>
@@ -96,36 +92,34 @@ export function IssueCard({ issue, showAffectedPages = false }: IssueCardProps) 
 
               {(issue.allTargets?.length || issue.target) && (
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <Code2 className="w-3 h-3 text-slate-500" />
+                  <Code2 className="w-3 h-3 text-foreground-muted" />
                   {(issue.allTargets && issue.allTargets.length > 1) ? (
-                    // Multiple targets - show as list
                     <>
                       {issue.allTargets.slice(0, 3).map((t, i) => (
-                        <code key={i} className="font-code text-xs text-cyan-400 bg-cyan-400/10 px-1.5 py-0.5 rounded">
+                        <code key={i} className="font-code text-xs text-accent bg-accent/10 px-1.5 py-0.5 rounded">
                           {t}
                         </code>
                       ))}
                       {issue.allTargets.length > 3 && (
-                        <span className="text-xs text-slate-500">
+                        <span className="text-xs text-foreground-muted">
                           +{issue.allTargets.length - 3} more
                         </span>
                       )}
                     </>
                   ) : (
-                    // Single target
                     <div className="flex items-center gap-1.5 group">
-                      <code className="font-code text-xs text-cyan-400 bg-cyan-400/10 px-1.5 py-0.5 rounded">
+                      <code className="font-code text-xs text-accent bg-accent/10 px-1.5 py-0.5 rounded">
                         {issue.target}
                       </code>
                       <button
                         onClick={copySelector}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-surface rounded"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-muted rounded"
                         title="Copy selector"
                       >
                         {copied ? (
                           <Check className="w-3 h-3 text-success" />
                         ) : (
-                          <Copy className="w-3 h-3 text-slate-400" />
+                          <Copy className="w-3 h-3 text-foreground-muted" />
                         )}
                       </button>
                     </div>
@@ -141,21 +135,21 @@ export function IssueCard({ issue, showAffectedPages = false }: IssueCardProps) 
                 href={issue.helpUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-2 rounded-lg hover:bg-surface transition-colors"
+                className="p-2 rounded-lg hover:bg-muted transition-colors"
                 title="Learn more on Deque University"
               >
-                <ExternalLink className="w-4 h-4 text-slate-400" />
+                <ExternalLink className="w-4 h-4 text-foreground-muted" />
               </a>
             )}
             <button
               onClick={() => setExpanded(!expanded)}
-              className="p-2 rounded-lg hover:bg-surface transition-colors"
+              className="p-2 rounded-lg hover:bg-muted transition-colors"
               title={expanded ? 'Hide details' : 'Show details'}
             >
               {expanded ? (
-                <ChevronDown className="w-4 h-4 text-slate-400" />
+                <ChevronDown className="w-4 h-4 text-foreground-muted" />
               ) : (
-                <ChevronRight className="w-4 h-4 text-slate-400" />
+                <ChevronRight className="w-4 h-4 text-foreground-muted" />
               )}
             </button>
           </div>
@@ -169,79 +163,79 @@ export function IssueCard({ issue, showAffectedPages = false }: IssueCardProps) 
           <div className="border-t border-border">
             {/* Problem & Solution */}
             {fixSuggestion && (
-              <div className="p-4 bg-surface/50">
-                <div className="mb-3">
-                  <span className="text-xs font-medium text-red-400 uppercase tracking-wide">Problem</span>
-                  <p className="text-sm text-slate-300 mt-1">{fixSuggestion.problem}</p>
+              <div className="p-4 bg-muted/50">
+                <div className="mb-4">
+                  <span className="text-xs font-semibold text-critical uppercase tracking-wide">Problem</span>
+                  <p className="text-sm text-foreground mt-1">{fixSuggestion.problem}</p>
                 </div>
                 <div>
-                  <span className="text-xs font-medium text-green-400 uppercase tracking-wide">Solution</span>
-                  <p className="text-sm text-slate-300 mt-1">{fixSuggestion.solution}</p>
+                  <span className="text-xs font-semibold text-success uppercase tracking-wide">Solution</span>
+                  <p className="text-sm text-foreground mt-1">{fixSuggestion.solution}</p>
                 </div>
               </div>
             )}
 
-            {/* Your Code */}
+            {/* Your Code - Dark terminal style */}
             {issue.htmlSnippet && (
-              <div className="p-4 bg-[#0a0a0f] border-t border-border">
-                <div className="flex items-center gap-2 mb-2">
-                  <Code2 className="w-4 h-4 text-slate-500" />
+              <div className="p-4 bg-[#1e1e2e] border-t border-border">
+                <div className="flex items-center gap-2 mb-3">
+                  <Code2 className="w-4 h-4 text-slate-400" />
                   <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">
                     Your Code
                   </span>
                 </div>
-                <pre className="text-xs font-code text-slate-400 whitespace-pre-wrap overflow-x-auto leading-relaxed">
-                  {issue.htmlSnippet}
+                <pre className="text-sm font-code text-slate-300 whitespace-pre-wrap overflow-x-auto leading-relaxed">
+                  <code dangerouslySetInnerHTML={{ __html: highlightHtml(issue.htmlSnippet) }} />
                 </pre>
               </div>
             )}
 
-            {/* Before / After Examples */}
+            {/* Before / After Examples - Dark code blocks */}
             {fixSuggestion && (
               <div className="border-t border-border">
-                <div className="grid grid-cols-2 divide-x divide-border">
+                <div className="grid grid-cols-2">
                   {/* Before */}
-                  <div className="p-4 bg-red-500/5">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="w-2 h-2 rounded-full bg-red-500"></span>
-                      <span className="text-xs font-medium text-red-400 uppercase tracking-wide">
+                  <div className="p-4 bg-[#1e1e2e] border-r border-border">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="w-2 h-2 rounded-full bg-critical"></span>
+                      <span className="text-xs font-semibold text-critical uppercase tracking-wide">
                         Before (Wrong)
                       </span>
                     </div>
-                    <pre className="text-xs font-code text-slate-400 whitespace-pre-wrap overflow-x-auto leading-relaxed">
-                      {fixSuggestion.before}
+                    <pre className="text-sm font-code text-slate-300 whitespace-pre-wrap overflow-x-auto leading-relaxed">
+                      <code dangerouslySetInnerHTML={{ __html: highlightHtml(fixSuggestion.before) }} />
                     </pre>
                   </div>
 
                   {/* After */}
-                  <div className="p-4 bg-green-500/5">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                      <span className="text-xs font-medium text-green-400 uppercase tracking-wide">
+                  <div className="p-4 bg-[#1e1e2e]">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="w-2 h-2 rounded-full bg-success"></span>
+                      <span className="text-xs font-semibold text-success uppercase tracking-wide">
                         After (Correct)
                       </span>
                     </div>
-                    <pre className="text-xs font-code text-slate-300 whitespace-pre-wrap overflow-x-auto leading-relaxed">
-                      {fixSuggestion.after}
+                    <pre className="text-sm font-code text-slate-300 whitespace-pre-wrap overflow-x-auto leading-relaxed">
+                      <code dangerouslySetInnerHTML={{ __html: highlightHtml(fixSuggestion.after) }} />
                     </pre>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Fallback: Original fix suggestions if no database entry */}
+            {/* Fallback fix suggestions */}
             {!fixSuggestion && fixes.length > 0 && (
-              <div className="p-4 bg-amber-500/5 border-t border-border">
+              <div className="p-4 bg-accent/5 border-t border-border">
                 <div className="flex items-center gap-2 mb-3">
-                  <Lightbulb className="w-4 h-4 text-amber-400" />
-                  <span className="text-xs font-medium text-amber-400 uppercase tracking-wide">
+                  <Lightbulb className="w-4 h-4 text-accent" />
+                  <span className="text-xs font-semibold text-accent uppercase tracking-wide">
                     How to Fix
                   </span>
                 </div>
                 <ul className="space-y-2">
                   {fixes.map((fix, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
-                      <ArrowRight className="w-3.5 h-3.5 text-amber-400 mt-0.5 flex-shrink-0" />
+                    <li key={i} className="flex items-start gap-2 text-sm text-foreground">
+                      <ArrowRight className="w-3.5 h-3.5 text-accent mt-0.5 flex-shrink-0" />
                       <span>{fix}</span>
                     </li>
                   ))}
@@ -249,39 +243,38 @@ export function IssueCard({ issue, showAffectedPages = false }: IssueCardProps) 
               </div>
             )}
 
-            {/* Affected Pages - Collapsible */}
+            {/* Affected Pages */}
             {issue.affectedPageUrls && issue.affectedPageUrls.length > 0 && (
               <div className="border-t border-border">
                 <button
                   onClick={() => setShowPages(!showPages)}
-                  className="w-full p-4 flex items-center justify-between hover:bg-surface/30 transition-colors"
+                  className="w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-slate-500" />
-                    <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">
+                    <FileText className="w-4 h-4 text-foreground-muted" />
+                    <span className="text-xs font-medium text-foreground-muted uppercase tracking-wide">
                       Affected Pages
                     </span>
-                    <span className="text-xs px-2 py-0.5 rounded bg-primary/20 text-primary font-medium">
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-accent/10 text-accent font-medium">
                       {issue.affectedPageUrls.length}
                     </span>
                   </div>
                   {showPages ? (
-                    <ChevronDown className="w-4 h-4 text-slate-400" />
+                    <ChevronDown className="w-4 h-4 text-foreground-muted" />
                   ) : (
-                    <ChevronRight className="w-4 h-4 text-slate-400" />
+                    <ChevronRight className="w-4 h-4 text-foreground-muted" />
                   )}
                 </button>
 
                 {showPages && (
                   <div className="px-4 pb-4 space-y-1 max-h-64 overflow-y-auto">
                     {issue.affectedPageUrls.map((url, i) => {
-                      // Extract path from URL for display
                       let displayPath = url;
                       try {
                         const parsed = new URL(url);
                         displayPath = parsed.pathname + parsed.search;
                       } catch {
-                        // Use full URL if parsing fails
+                        // Use full URL
                       }
 
                       return (
@@ -290,7 +283,7 @@ export function IssueCard({ issue, showAffectedPages = false }: IssueCardProps) 
                           href={url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-surface transition-colors group"
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-foreground-muted hover:text-foreground hover:bg-muted transition-colors group"
                         >
                           <span className="truncate flex-1">{displayPath}</span>
                           <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
@@ -306,4 +299,17 @@ export function IssueCard({ issue, showAffectedPages = false }: IssueCardProps) 
       })()}
     </div>
   );
+}
+
+// Simple HTML syntax highlighting
+function highlightHtml(code: string): string {
+  return code
+    // Escape HTML first
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    // Then apply highlighting
+    .replace(/(&lt;\/?)([\w-]+)/g, '<span class="text-pink-400">$1</span><span class="text-blue-400">$2</span>')
+    .replace(/([\w-]+)(=)/g, '<span class="text-purple-400">$1</span><span class="text-slate-400">$2</span>')
+    .replace(/(".*?")/g, '<span class="text-green-400">$1</span>');
 }

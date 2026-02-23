@@ -15,7 +15,6 @@ interface GroupedPage {
   uniqueIssueCount: number;
 }
 
-// Extract base path from URL (without query params)
 function getBasePath(url: string): string {
   try {
     const parsed = new URL(url);
@@ -25,13 +24,11 @@ function getBasePath(url: string): string {
   }
 }
 
-// Deduplicate issues by ruleId only - group all violations of same rule
 function deduplicateIssues(issues: Issue[]): Issue[] {
   const seen = new Map<string, Issue & { allTargets: string[] }>();
   for (const issue of issues) {
     const key = issue.ruleId;
     if (seen.has(key)) {
-      // Add target to existing issue's targets list
       const existing = seen.get(key)!;
       if (issue.target && !existing.allTargets.includes(issue.target)) {
         existing.allTargets.push(issue.target);
@@ -50,7 +47,6 @@ export function PageIssues({ pages }: PageIssuesProps) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [groupByPath, setGroupByPath] = useState(true);
 
-  // Group pages by base path
   const groupedPages = useMemo(() => {
     if (!groupByPath) {
       return pages.map(page => ({
@@ -82,7 +78,6 @@ export function PageIssues({ pages }: PageIssuesProps) {
       }
     }
 
-    // Deduplicate issues within each group
     for (const group of groups.values()) {
       group.issues = deduplicateIssues(group.issues);
       group.uniqueIssueCount = group.issues.length;
@@ -104,9 +99,9 @@ export function PageIssues({ pages }: PageIssuesProps) {
   if (pages.length === 0) {
     return (
       <div className="card text-center py-12">
-        <p className="text-slate-400">No page-specific issues found.</p>
-        <p className="text-sm text-slate-500 mt-1">
-          All issues are in shared components.
+        <p className="text-foreground-muted">No issues found with current filters.</p>
+        <p className="text-sm text-foreground-muted/60 mt-1">
+          Try expanding the severity filters to see more issues.
         </p>
       </div>
     );
@@ -118,10 +113,10 @@ export function PageIssues({ pages }: PageIssuesProps) {
       <div className="flex items-center justify-end mb-4">
         <button
           onClick={() => setGroupByPath(!groupByPath)}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
             groupByPath
-              ? 'bg-primary/20 text-primary'
-              : 'bg-surface text-slate-400 hover:text-white'
+              ? 'bg-primary text-white'
+              : 'bg-surface border border-border text-foreground-muted hover:text-foreground'
           }`}
         >
           <Layers className="w-3.5 h-3.5" />
@@ -129,7 +124,7 @@ export function PageIssues({ pages }: PageIssuesProps) {
         </button>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-3">
         {groupedPages.map((group) => (
           <div key={group.basePath} className="card">
             <button
@@ -138,18 +133,18 @@ export function PageIssues({ pages }: PageIssuesProps) {
             >
               <div className="flex items-center gap-3">
                 {expanded.has(group.basePath) ? (
-                  <ChevronDown className="w-5 h-5 text-slate-400" />
+                  <ChevronDown className="w-5 h-5 text-foreground-muted" />
                 ) : (
-                  <ChevronRight className="w-5 h-5 text-slate-400" />
+                  <ChevronRight className="w-5 h-5 text-foreground-muted" />
                 )}
-                <FileText className="w-5 h-5 text-slate-500" />
+                <FileText className="w-5 h-5 text-foreground-muted" />
                 <div className="text-left">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-medium text-white truncate max-w-md">
+                    <h3 className="font-medium text-foreground truncate max-w-md">
                       {group.title}
                     </h3>
                     {group.pages.length > 1 && (
-                      <span className="text-xs px-1.5 py-0.5 rounded bg-primary/20 text-primary">
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-accent/10 text-accent font-medium">
                         {group.pages.length} pages
                       </span>
                     )}
@@ -159,7 +154,7 @@ export function PageIssues({ pages }: PageIssuesProps) {
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}
-                    className="text-xs text-slate-500 hover:text-primary truncate max-w-lg flex items-center gap-1 group"
+                    className="text-xs text-foreground-muted hover:text-accent truncate max-w-lg flex items-center gap-1 group"
                   >
                     <span className="truncate">{group.basePath}</span>
                     <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
@@ -167,7 +162,11 @@ export function PageIssues({ pages }: PageIssuesProps) {
                 </div>
               </div>
 
-              <span className="text-sm font-medium px-2 py-0.5 rounded bg-slate-700/50 text-slate-300">
+              <span className={`text-sm font-medium px-3 py-1 rounded-full ${
+                group.uniqueIssueCount > 0
+                  ? 'bg-critical/10 text-critical'
+                  : 'bg-muted text-foreground-muted'
+              }`}>
                 {group.uniqueIssueCount} {group.uniqueIssueCount === 1 ? 'issue' : 'issues'}
               </span>
             </button>
