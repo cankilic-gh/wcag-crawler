@@ -8,9 +8,16 @@ import { scannerService } from '../services/scanner.service.js';
 import { deduplicationService } from '../services/deduplication.service.js';
 import { reportService } from '../services/report.service.js';
 import { logger } from '../utils/logger.js';
+import { isValidScanUrl } from '../utils/url.utils.js';
+
+// Custom URL validator that accepts localhost and local network URLs
+const urlSchema = z.string().refine(
+  (url) => isValidScanUrl(url),
+  { message: 'Invalid URL. Must be a valid HTTP or HTTPS URL.' }
+);
 
 const scanConfigSchema = z.object({
-  url: z.string().url(),
+  url: urlSchema,
   config: z.object({
     maxPages: z.number().min(1).max(500).default(100),
     maxDepth: z.number().min(1).max(10).default(5),

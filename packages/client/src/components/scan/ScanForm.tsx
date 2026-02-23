@@ -65,7 +65,7 @@ export function ScanForm() {
             type="url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://example.com"
+            placeholder="https://example.com or http://localhost:3000"
             className="flex-1 bg-transparent border-none outline-none text-foreground placeholder-foreground-muted/50 text-base py-2"
             autoFocus
           />
@@ -89,6 +89,11 @@ export function ScanForm() {
         </div>
         {error && (
           <p className="absolute -bottom-6 left-0 text-sm text-critical">{error}</p>
+        )}
+        {!error && (
+          <p className="text-xs text-foreground-muted/60 mt-2 text-center">
+            Supports localhost and local network URLs for testing development projects
+          </p>
         )}
       </div>
 

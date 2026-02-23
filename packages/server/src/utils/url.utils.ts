@@ -45,6 +45,29 @@ export function isValidHttpUrl(urlString: string): boolean {
   }
 }
 
+export function isLocalhostUrl(urlString: string): boolean {
+  try {
+    const url = new URL(urlString);
+    const hostname = url.hostname.toLowerCase();
+    return (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '0.0.0.0' ||
+      hostname.endsWith('.localhost') ||
+      // Also support common local network patterns
+      hostname.startsWith('192.168.') ||
+      hostname.startsWith('10.') ||
+      hostname.match(/^172\.(1[6-9]|2[0-9]|3[0-1])\./) !== null
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function isValidScanUrl(urlString: string): boolean {
+  return isValidHttpUrl(urlString);
+}
+
 export function shouldSkipUrl(url: string, excludePatterns: string[]): boolean {
   // Skip binary files
   const binaryExtensions = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.svg', '.ico', '.zip', '.tar', '.gz', '.mp3', '.mp4', '.webm', '.woff', '.woff2', '.ttf', '.eot'];
