@@ -3,12 +3,15 @@ import { logger } from '../utils/logger.js';
 
 const RAILWAY_API_URL = 'https://backboard.railway.app/graphql/v2';
 
+// WCAG Crawler project ID on Railway
+const RAILWAY_PROJECT_ID = 'f8a9f954-8691-42c3-acc5-cb2c51e6a71e';
+
 interface RailwayUsageResponse {
-  estimatedUsage: number;
   creditsRemaining: number;
   daysRemaining: number;
   plan: string;
   billingPeriodEnd: string;
+  projectName: string;
 }
 
 export function createSystemRoutes(): Router {
@@ -26,25 +29,22 @@ export function createSystemRoutes(): Router {
     }
 
     try {
-      // GraphQL query to get workspace usage
+      // GraphQL query to get project and workspace billing info
       const query = `
         query {
-          me {
+          project(id: "${RAILWAY_PROJECT_ID}") {
             id
-            email
-          }
-          workspaces {
-            edges {
-              node {
-                id
-                name
-                subscription {
-                  planId
-                  billingCycleAnchor
-                }
-                usage {
-                  estimatedUsage
-                  creditsAvailable
+            name
+            subscriptionType
+            workspace {
+              id
+              name
+              plan
+              customer {
+                creditBalance
+                billingPeriod {
+                  start
+                  end
                 }
               }
             }
@@ -69,75 +69,37 @@ export function createSystemRoutes(): Router {
 
       if (data.errors) {
         logger.warn('Railway API errors', { errors: data.errors });
-
-        // Try alternative query for personal account
-        const altQuery = `
-          query {
-            me {
-              id
-              email
-              customer {
-                billingEmail
-                creditBalance
-                hasPaymentMethod
-              }
-            }
-          }
-        `;
-
-        const altResponse = await fetch(RAILWAY_API_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${railwayToken}`,
-          },
-          body: JSON.stringify({ query: altQuery }),
+        return res.status(500).json({
+          error: 'Railway API error',
+          details: data.errors,
         });
-
-        const altData = await altResponse.json();
-
-        if (altData.data?.me?.customer) {
-          const customer = altData.data.me.customer;
-          return res.json({
-            usage: {
-              creditsRemaining: customer.creditBalance || 0,
-              plan: customer.hasPaymentMethod ? 'hobby' : 'trial',
-              email: altData.data.me.email,
-            },
-          });
-        }
       }
 
-      // Parse the response
-      const workspace = data.data?.workspaces?.edges?.[0]?.node;
+      const project = data.data?.project;
+      const workspace = project?.workspace;
+      const customer = workspace?.customer;
 
-      if (workspace) {
-        const usage = workspace.usage || {};
-        const subscription = workspace.subscription || {};
-
-        // Calculate days remaining in billing cycle
-        let daysRemaining = 0;
-        if (subscription.billingCycleAnchor) {
-          const cycleEnd = new Date(subscription.billingCycleAnchor);
-          cycleEnd.setMonth(cycleEnd.getMonth() + 1);
-          daysRemaining = Math.max(0, Math.ceil((cycleEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
-        }
-
-        const result: RailwayUsageResponse = {
-          estimatedUsage: usage.estimatedUsage || 0,
-          creditsRemaining: usage.creditsAvailable || 5,
-          daysRemaining,
-          plan: subscription.planId || 'hobby',
-          billingPeriodEnd: subscription.billingCycleAnchor || '',
-        };
-
-        return res.json({ usage: result });
+      if (!project || !workspace || !customer) {
+        return res.json({
+          usage: null,
+          message: 'No billing data found',
+        });
       }
 
-      return res.json({
-        usage: null,
-        message: 'No workspace data found',
-      });
+      // Calculate days remaining
+      const billingEnd = new Date(customer.billingPeriod.end);
+      const now = new Date();
+      const daysRemaining = Math.max(0, Math.ceil((billingEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+
+      const result: RailwayUsageResponse = {
+        creditsRemaining: customer.creditBalance || 0,
+        daysRemaining,
+        plan: workspace.plan || 'hobby',
+        billingPeriodEnd: customer.billingPeriod.end,
+        projectName: project.name,
+      };
+
+      return res.json({ usage: result });
 
     } catch (error) {
       logger.error('Failed to fetch Railway usage', { error: (error as Error).message });

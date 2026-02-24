@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Train, AlertCircle } from 'lucide-react';
+import { Train, AlertCircle, Clock } from 'lucide-react';
 
 interface UsageData {
   creditsRemaining: number;
   daysRemaining: number;
-  estimatedUsage: number;
   plan: string;
+  projectName: string;
 }
 
 export function RailwayUsage() {
@@ -15,6 +15,9 @@ export function RailwayUsage() {
 
   useEffect(() => {
     fetchUsage();
+    // Refresh every 5 minutes
+    const interval = setInterval(fetchUsage, 5 * 60 * 1000);
+    return () => clearInterval(interval);
   }, []);
 
   const fetchUsage = async () => {
@@ -25,6 +28,7 @@ export function RailwayUsage() {
 
       if (data.usage) {
         setUsage(data.usage);
+        setError(null);
       } else if (data.error) {
         setError(data.error);
       }
@@ -36,46 +40,50 @@ export function RailwayUsage() {
   };
 
   if (loading) {
-    return null; // Don't show anything while loading
+    return null;
   }
 
   if (error || !usage) {
-    return null; // Don't show if there's an error or no data
+    return null;
   }
 
-  // Calculate percentage of credits used
+  // Calculate percentage of credits remaining (inverse - show remaining not used)
   const totalCredits = 5; // Hobby plan default
-  const usedCredits = totalCredits - usage.creditsRemaining;
-  const usagePercent = Math.min(100, (usedCredits / totalCredits) * 100);
+  const remainingPercent = Math.min(100, (usage.creditsRemaining / totalCredits) * 100);
 
-  // Determine status color
+  // Determine status color based on remaining credits
   const getStatusColor = () => {
-    if (usagePercent >= 90) return 'text-critical bg-critical/10';
-    if (usagePercent >= 70) return 'text-serious bg-serious/10';
+    if (remainingPercent <= 10) return 'text-critical bg-critical/10';
+    if (remainingPercent <= 30) return 'text-serious bg-serious/10';
     return 'text-success bg-success/10';
   };
 
   const getBarColor = () => {
-    if (usagePercent >= 90) return 'bg-critical';
-    if (usagePercent >= 70) return 'bg-serious';
+    if (remainingPercent <= 10) return 'bg-critical';
+    if (remainingPercent <= 30) return 'bg-serious';
     return 'bg-success';
   };
 
   return (
     <div className="fixed bottom-4 right-4 z-50">
-      <div className="bg-surface border border-border rounded-xl shadow-elevated p-3 min-w-[200px]">
-        <div className="flex items-center gap-2 mb-2">
-          <Train className="w-4 h-4 text-foreground-muted" />
-          <span className="text-xs font-medium text-foreground-muted uppercase tracking-wide">
-            Railway Usage
+      <div className="bg-surface border border-border rounded-xl shadow-elevated p-3 min-w-[220px]">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Train className="w-4 h-4 text-foreground-muted" />
+            <span className="text-xs font-medium text-foreground-muted uppercase tracking-wide">
+              Railway
+            </span>
+          </div>
+          <span className="text-[10px] text-foreground-muted/60 uppercase">
+            {usage.plan}
           </span>
         </div>
 
-        {/* Progress bar */}
+        {/* Progress bar - shows remaining credits */}
         <div className="h-2 bg-muted rounded-full overflow-hidden mb-2">
           <div
-            className={`h-full rounded-full transition-all ${getBarColor()}`}
-            style={{ width: `${usagePercent}%` }}
+            className={`h-full rounded-full transition-all duration-500 ${getBarColor()}`}
+            style={{ width: `${remainingPercent}%` }}
           />
         </div>
 
@@ -84,16 +92,17 @@ export function RailwayUsage() {
           <span className={`px-2 py-0.5 rounded-full font-medium ${getStatusColor()}`}>
             ${usage.creditsRemaining.toFixed(2)} left
           </span>
-          <span className="text-foreground-muted">
-            {usage.daysRemaining} days
-          </span>
+          <div className="flex items-center gap-1 text-foreground-muted">
+            <Clock className="w-3 h-3" />
+            <span>{usage.daysRemaining}d</span>
+          </div>
         </div>
 
         {/* Warning if low */}
-        {usagePercent >= 80 && (
+        {remainingPercent <= 20 && (
           <div className="flex items-center gap-1.5 mt-2 text-xs text-serious">
             <AlertCircle className="w-3 h-3" />
-            <span>Credits running low</span>
+            <span>Credits running low!</span>
           </div>
         )}
       </div>
