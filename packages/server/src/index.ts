@@ -5,6 +5,7 @@ import { Server as SocketServer } from 'socket.io';
 import { initializeDatabase } from './db/database.js';
 import { createScanRoutes } from './routes/scan.routes.js';
 import { createReportRoutes } from './routes/report.routes.js';
+import { createSystemRoutes } from './routes/system.routes.js';
 import { logger } from './utils/logger.js';
 
 const PORT = process.env.PORT || 3001;
@@ -52,6 +53,7 @@ app.get('/health', (req, res) => {
 // API Routes
 app.use('/api/scans', createScanRoutes(io));
 app.use('/api/reports', createReportRoutes());
+app.use('/api/system', createSystemRoutes());
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
