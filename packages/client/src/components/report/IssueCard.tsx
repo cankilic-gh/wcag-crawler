@@ -162,16 +162,11 @@ export function IssueCard({ issue, showAffectedPages = false }: IssueCardProps) 
                   <Code2 className="w-3 h-3 text-foreground-muted" />
                   {(issue.allTargets && issue.allTargets.length > 1) ? (
                     <>
-                      {issue.allTargets.slice(0, 3).map((t, i) => (
+                      {issue.allTargets.map((t, i) => (
                         <code key={i} className="font-code text-xs text-accent bg-accent/10 px-1.5 py-0.5 rounded">
                           {t}
                         </code>
                       ))}
-                      {issue.allTargets.length > 3 && (
-                        <span className="text-xs text-foreground-muted">
-                          +{issue.allTargets.length - 3} more
-                        </span>
-                      )}
                     </>
                   ) : (
                     <div className="flex items-center gap-1.5 group">
