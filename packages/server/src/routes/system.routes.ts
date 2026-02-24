@@ -3,14 +3,15 @@ import { logger } from '../utils/logger.js';
 
 const RAILWAY_API_URL = 'https://backboard.railway.app/graphql/v2';
 
-// WCAG Crawler project ID on Railway
-const RAILWAY_PROJECT_ID = 'f8a9f954-8691-42c3-acc5-cb2c51e6a71e';
+// WCAG Crawler project ID on Railway (profound-truth)
+const RAILWAY_PROJECT_ID = 'e37908ce-5bf5-4f80-9d46-c0df02b434ea';
 
 interface RailwayUsageResponse {
   creditsRemaining: number;
+  creditsUsed: number;
   daysRemaining: number;
   plan: string;
-  billingPeriodEnd: string;
+  isTrialing: boolean;
   projectName: string;
 }
 
@@ -35,17 +36,14 @@ export function createSystemRoutes(): Router {
           project(id: "${RAILWAY_PROJECT_ID}") {
             id
             name
-            subscriptionType
             workspace {
-              id
               name
               plan
               customer {
-                creditBalance
-                billingPeriod {
-                  start
-                  end
-                }
+                currentUsage
+                remainingUsageCreditBalance
+                trialDaysRemaining
+                isTrialing
               }
             }
           }
@@ -86,16 +84,12 @@ export function createSystemRoutes(): Router {
         });
       }
 
-      // Calculate days remaining
-      const billingEnd = new Date(customer.billingPeriod.end);
-      const now = new Date();
-      const daysRemaining = Math.max(0, Math.ceil((billingEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
-
       const result: RailwayUsageResponse = {
-        creditsRemaining: customer.creditBalance || 0,
-        daysRemaining,
+        creditsRemaining: customer.remainingUsageCreditBalance || 0,
+        creditsUsed: customer.currentUsage || 0,
+        daysRemaining: customer.trialDaysRemaining || 0,
         plan: workspace.plan || 'hobby',
-        billingPeriodEnd: customer.billingPeriod.end,
+        isTrialing: customer.isTrialing || false,
         projectName: project.name,
       };
 

@@ -3,8 +3,10 @@ import { Train, AlertCircle, Clock } from 'lucide-react';
 
 interface UsageData {
   creditsRemaining: number;
+  creditsUsed: number;
   daysRemaining: number;
   plan: string;
+  isTrialing: boolean;
   projectName: string;
 }
 
@@ -47,8 +49,8 @@ export function RailwayUsage() {
     return null;
   }
 
-  // Calculate percentage of credits remaining (inverse - show remaining not used)
-  const totalCredits = 5; // Hobby plan default
+  // Calculate percentage of credits remaining
+  const totalCredits = 5; // Plan included credits
   const remainingPercent = Math.min(100, (usage.creditsRemaining / totalCredits) * 100);
 
   // Determine status color based on remaining credits
@@ -75,7 +77,7 @@ export function RailwayUsage() {
             </span>
           </div>
           <span className="text-[10px] text-foreground-muted/60 uppercase">
-            {usage.plan}
+            {usage.isTrialing ? 'TRIAL' : usage.plan}
           </span>
         </div>
 
