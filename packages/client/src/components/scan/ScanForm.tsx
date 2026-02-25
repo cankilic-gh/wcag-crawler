@@ -123,7 +123,7 @@ export function ScanForm() {
               <input
                 type="range"
                 min="10"
-                max="500"
+                max="100"
                 step="10"
                 value={config.maxPages}
                 onChange={(e) => setConfig({ ...config, maxPages: parseInt(e.target.value) })}
@@ -132,7 +132,7 @@ export function ScanForm() {
               <div className="flex justify-between text-xs text-foreground-muted mt-1">
                 <span>10</span>
                 <span className="font-medium text-foreground">{config.maxPages}</span>
-                <span>500</span>
+                <span>100</span>
               </div>
             </div>
 
@@ -146,7 +146,7 @@ export function ScanForm() {
               <input
                 type="range"
                 min="1"
-                max="10"
+                max="5"
                 value={config.maxDepth}
                 onChange={(e) => setConfig({ ...config, maxDepth: parseInt(e.target.value) })}
                 className="w-full accent-primary"
@@ -154,7 +154,7 @@ export function ScanForm() {
               <div className="flex justify-between text-xs text-foreground-muted mt-1">
                 <span>1</span>
                 <span className="font-medium text-foreground">{config.maxDepth}</span>
-                <span>10</span>
+                <span>5</span>
               </div>
             </div>
           </div>

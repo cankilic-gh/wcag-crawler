@@ -19,8 +19,8 @@ const urlSchema = z.string().refine(
 const scanConfigSchema = z.object({
   url: urlSchema,
   config: z.object({
-    maxPages: z.number().min(1).max(500).default(100),
-    maxDepth: z.number().min(1).max(10).default(5),
+    maxPages: z.number().min(1).max(100).default(40),
+    maxDepth: z.number().min(1).max(5).default(3),
     concurrency: z.number().min(1).max(5).default(3),
     delay: z.number().min(0).max(5000).default(500),
     excludePatterns: z.array(z.string()).default([]),
