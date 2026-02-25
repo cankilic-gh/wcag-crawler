@@ -179,9 +179,9 @@ export function CrawlProgress({ scanId }: CrawlProgressProps) {
                     <div
                       className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold z-10 ${
                         status === phase
-                          ? 'bg-primary text-foreground'
+                          ? 'bg-primary text-white'
                           : currentIndex > index
-                          ? 'bg-success text-foreground'
+                          ? 'bg-success text-white'
                           : 'bg-border text-foreground-muted'
                       }`}
                     >

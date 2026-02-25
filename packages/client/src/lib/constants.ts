@@ -50,7 +50,7 @@ export const VIEWPORT_PRESETS = [
 ] as const;
 
 export const DEFAULT_SCAN_CONFIG = {
-  maxPages: 40,
+  maxPages: 50,
   maxDepth: 3,
   concurrency: 3,
   delay: 500,
