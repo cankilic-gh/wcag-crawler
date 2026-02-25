@@ -5,12 +5,19 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://wcag-crawler-serv
 
 // Singleton socket instance
 let socketInstance: Socket | null = null;
+// Track joined scan rooms so we can rejoin after reconnect
+const joinedRooms = new Set<string>();
 
 function getSocket(): Socket {
   if (!socketInstance) {
     socketInstance = io(SOCKET_URL, {
       transports: ['websocket', 'polling'],
       autoConnect: true,
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 120000,
     });
   }
   return socketInstance;
@@ -26,6 +33,11 @@ export function useSocket() {
     const onConnect = () => {
       console.log('[Socket] Connected:', socket.id);
       setIsConnected(true);
+      // Rejoin scan rooms after reconnect
+      for (const scanId of joinedRooms) {
+        console.log('[Socket] Rejoining scan room after reconnect:', scanId);
+        socket.emit('scan:join', scanId);
+      }
     };
 
     const onDisconnect = () => {
@@ -50,12 +62,14 @@ export function useSocket() {
   const joinScan = useCallback((scanId: string) => {
     const socket = socketRef.current;
     console.log('[Socket] Joining scan room:', scanId);
+    joinedRooms.add(scanId);
     socket.emit('scan:join', scanId);
   }, []);
 
   const leaveScan = useCallback((scanId: string) => {
     const socket = socketRef.current;
     console.log('[Socket] Leaving scan room:', scanId);
+    joinedRooms.delete(scanId);
     socket.emit('scan:leave', scanId);
   }, []);
 

@@ -94,3 +94,46 @@ export function resolveUrl(baseUrl: string, relativeUrl: string): string | null 
     return null;
   }
 }
+
+/**
+ * Extract a URL pattern by replacing numeric IDs with placeholders.
+ * Used to detect duplicate page templates (e.g., news.action?id=3560 and news.action?id=3400).
+ * Returns null if the URL has no variable parts (static pages are not pattern-limited).
+ */
+export function getUrlPattern(urlString: string): string | null {
+  try {
+    const url = new URL(urlString);
+
+    // Replace numeric path segments with :id
+    let hasVariable = false;
+    const pathPattern = url.pathname
+      .split('/')
+      .map(segment => {
+        if (/^\d+$/.test(segment)) {
+          hasVariable = true;
+          return ':id';
+        }
+        return segment;
+      })
+      .join('/');
+
+    // Check if query params contain numeric values
+    const params = new URLSearchParams(url.search);
+    if (params.size > 0) {
+      for (const [, value] of params) {
+        if (/^\d+$/.test(value)) {
+          hasVariable = true;
+          break;
+        }
+      }
+    }
+
+    // Only return a pattern for URLs with variable parts
+    if (!hasVariable) return null;
+
+    const paramNames = [...params.keys()].sort().join('&');
+    return paramNames ? `${pathPattern}?${paramNames}` : pathPattern;
+  } catch {
+    return null;
+  }
+}

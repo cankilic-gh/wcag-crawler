@@ -2,7 +2,7 @@ import { chromium, Browser, Page, BrowserContext } from 'playwright';
 import { Server as SocketServer } from 'socket.io';
 import { ScanConfig } from '../models/scan.model.js';
 import { PageModel } from '../models/page.model.js';
-import { normalizeUrl, isSameOrigin, shouldSkipUrl, resolveUrl } from '../utils/url.utils.js';
+import { normalizeUrl, isSameOrigin, shouldSkipUrl, resolveUrl, getUrlPattern } from '../utils/url.utils.js';
 import { logger } from '../utils/logger.js';
 
 interface CrawlResult {
@@ -23,6 +23,8 @@ export class CrawlerService {
   private config: ScanConfig | null = null;
   private rootOrigin: string = '';
   private isCancelled: boolean = false;
+  private patternCounts: Map<string, number> = new Map();
+  private readonly MAX_URLS_PER_PATTERN = 3;
 
   async initialize(io: SocketServer): Promise<void> {
     this.io = io;
@@ -42,6 +44,7 @@ export class CrawlerService {
     this.config = config;
     this.visited.clear();
     this.queue = [];
+    this.patternCounts.clear();
     this.isCancelled = false;
 
     const normalizedRoot = normalizeUrl(rootUrl);
@@ -173,6 +176,18 @@ export class CrawlerService {
         isSameOrigin(normalized, this.rootOrigin) &&
         !shouldSkipUrl(normalized, this.config.excludePatterns)
       ) {
+        // Limit dynamic URL patterns (e.g., news.action?id=XXX) to avoid
+        // wasting crawl budget on identical page templates
+        const pattern = getUrlPattern(normalized);
+        if (pattern) {
+          const count = this.patternCounts.get(pattern) || 0;
+          if (count >= this.MAX_URLS_PER_PATTERN) {
+            logger.debug(`Skipping URL (pattern limit reached): ${normalized} [pattern: ${pattern}]`);
+            continue;
+          }
+          this.patternCounts.set(pattern, count + 1);
+        }
+
         this.queue.push({ url: normalized, depth: currentDepth + 1 });
       }
     }

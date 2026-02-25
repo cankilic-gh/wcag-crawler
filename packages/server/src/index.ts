@@ -36,9 +36,13 @@ const corsOptions = {
   credentials: true,
 };
 
-// Initialize Socket.IO
+// Initialize Socket.IO with extended timeouts for heavy scan operations
+// better-sqlite3 runs synchronous queries that block the event loop,
+// so we need generous ping timeouts to prevent disconnects during scans
 const io = new SocketServer(httpServer, {
   cors: corsOptions,
+  pingTimeout: 120000,
+  pingInterval: 30000,
 });
 
 // Middleware

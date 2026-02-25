@@ -22,6 +22,7 @@ const REGION_LABELS: Record<string, string> = {
   footer: 'Site Footer',
   aside: 'Sidebar',
   'repeated-element': 'Repeated Element',
+  'duplicate-page': 'Duplicate Page Content',
 };
 
 export class DeduplicationService {
@@ -55,6 +56,13 @@ export class DeduplicationService {
 
     // Phase 3: Mark issues as shared or page-specific
     await this.markSharedIssues(scanId, sharedComponents);
+
+    // Phase 4: Identify content-duplicate pages (e.g., /faq and /faq.action)
+    const duplicatePageComponents = this.identifyDuplicatePages(scanId, pages);
+    if (duplicatePageComponents.length > 0) {
+      this.saveSharedComponents(duplicatePageComponents);
+      sharedComponents.push(...duplicatePageComponents);
+    }
 
     logger.info(`Deduplication complete: ${sharedComponents.length} shared components found`, { scanId });
 
@@ -190,6 +198,90 @@ export class DeduplicationService {
     }
 
     logger.debug(`Found ${sharedComponents.length} selector-based shared components`);
+    return sharedComponents;
+  }
+
+  /**
+   * Identify content-duplicate pages by comparing main region fingerprints.
+   * Pages like /faq and /faq.action that serve identical content are grouped,
+   * and their remaining page-specific issues are deduplicated into a shared component.
+   */
+  private identifyDuplicatePages(
+    scanId: string,
+    pages: Array<{ id: string; url: string; regions_fingerprint: Record<string, string> | null }>
+  ): SharedComponent[] {
+    const sharedComponents: SharedComponent[] = [];
+
+    // Group pages by main region fingerprint
+    const mainFingerprintGroups = new Map<string, typeof pages>();
+
+    for (const page of pages) {
+      const mainFingerprint = page.regions_fingerprint?.main;
+      if (!mainFingerprint) continue;
+
+      if (!mainFingerprintGroups.has(mainFingerprint)) {
+        mainFingerprintGroups.set(mainFingerprint, []);
+      }
+      mainFingerprintGroups.get(mainFingerprint)!.push(page);
+    }
+
+    for (const [fingerprint, duplicatePages] of mainFingerprintGroups) {
+      if (duplicatePages.length < 2) continue;
+
+      const pageUrls = duplicatePages.map(p => p.url);
+
+      // Re-fetch issues from DB to get fresh is_shared_component state (after Phase 3)
+      const allIssues: Issue[] = [];
+      for (const page of duplicatePages) {
+        const pageIssues = IssueModel.findByPageId(page.id);
+        allIssues.push(...pageIssues);
+      }
+
+      // Group non-shared issues by (rule_id, target_selector)
+      const issueGroups = new Map<string, Issue[]>();
+      for (const issue of allIssues) {
+        if (issue.is_shared_component) continue;
+
+        const key = `${issue.axe_rule_id}:${issue.target_selector || ''}`;
+        if (!issueGroups.has(key)) {
+          issueGroups.set(key, []);
+        }
+        issueGroups.get(key)!.push(issue);
+      }
+
+      // Mark issue groups that appear on multiple pages
+      const componentId = `sc_${nanoid(12)}`;
+      let markedCount = 0;
+
+      for (const [, issues] of issueGroups) {
+        const issuePageIds = new Set(issues.map(i => i.page_id));
+        if (issuePageIds.size >= 2) {
+          IssueModel.markManyAsSharedComponent(issues.map(i => i.id), componentId);
+          markedCount++;
+        }
+      }
+
+      if (markedCount > 0) {
+        const shortUrls = pageUrls.map(u => {
+          try { return new URL(u).pathname; } catch { return u; }
+        });
+
+        sharedComponents.push({
+          id: componentId,
+          scan_id: scanId,
+          region: 'duplicate-page',
+          fingerprint: `main:${fingerprint}`,
+          label: `Duplicate Page: ${shortUrls.join(', ')}`,
+          page_count: duplicatePages.length,
+          issue_count: markedCount,
+          sample_html: null,
+          page_urls: pageUrls,
+        });
+
+        logger.debug(`Found duplicate pages: ${shortUrls.join(', ')} (${markedCount} shared issues)`);
+      }
+    }
+
     return sharedComponents;
   }
 
