@@ -162,6 +162,9 @@ async function runScan(scanId: string, rootUrl: string, config: ScanConfig, io: 
 
   ScanModel.updateCounts(scanId, { total_pages: discoveredUrls.length });
 
+  // Close crawler browser before starting scanner to free memory
+  await crawlerService.close();
+
   // Phase 2: Scanning
   ScanModel.updateStatus(scanId, 'scanning');
   io.to(scanId).emit('scan:status', { scanId, status: 'scanning' });
@@ -197,7 +200,6 @@ async function runScan(scanId: string, rootUrl: string, config: ScanConfig, io: 
   });
 
   // Cleanup
-  await crawlerService.close();
   await scannerService.close();
 
   logger.info('Scan complete', { scanId, score: finalScan?.score });

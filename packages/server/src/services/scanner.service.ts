@@ -92,6 +92,9 @@ export class ScannerService {
 
   private async scanPage(page: Page): Promise<ScanPageResult | null> {
     const playwrightPage = await this.context!.newPage();
+    // Per-page timeout: skip page if it takes too long
+    playwrightPage.setDefaultTimeout(30000);
+    playwrightPage.setDefaultNavigationTimeout(30000);
 
     this.io?.to(this.scanId).emit('scan:page:start', {
       scanId: this.scanId,
@@ -113,13 +116,19 @@ export class ScannerService {
         await playwrightPage.waitForSelector(this.config.waitForSelector, { timeout: 5000 }).catch(() => {});
       }
 
-      // Run axe-core analysis - WCAG 2.1 AA only
-      const results = await new AxeBuilder({ page: playwrightPage })
-        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
-        .analyze();
+      // Run axe-core analysis with timeout - WCAG 2.1 AA only
+      const results = await Promise.race([
+        new AxeBuilder({ page: playwrightPage })
+          .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+          .analyze(),
+        this.delay(60000).then(() => { throw new Error('axe-core analysis timed out after 60s'); }),
+      ]);
 
-      // Extract region fingerprints
-      const regionsFingerprint = await this.extractRegionFingerprints(playwrightPage);
+      // Extract region fingerprints with timeout
+      const regionsFingerprint = await Promise.race([
+        this.extractRegionFingerprints(playwrightPage),
+        this.delay(10000).then(() => ({} as Record<DomRegion, string>)),
+      ]);
 
       // Process violations
       const issues: IssueCreate[] = [];
