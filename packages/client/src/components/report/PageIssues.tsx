@@ -24,6 +24,15 @@ function getBasePath(url: string): string {
   }
 }
 
+function isValidUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 function deduplicateIssues(issues: Issue[]): Issue[] {
   const seen = new Map<string, Issue & { allTargets: string[] }>();
   for (const issue of issues) {
@@ -149,16 +158,18 @@ export function PageIssues({ pages }: PageIssuesProps) {
                       </span>
                     )}
                   </div>
-                  <a
-                    href={group.pages[0].url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="text-xs text-foreground-muted hover:text-accent truncate max-w-lg flex items-center gap-1 group"
-                  >
-                    <span className="truncate">{group.basePath}</span>
-                    <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-                  </a>
+                  {isValidUrl(group.pages[0].url) && (
+                    <a
+                      href={group.pages[0].url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-xs text-foreground-muted hover:text-accent truncate max-w-lg flex items-center gap-1 group"
+                    >
+                      <span className="truncate">{group.basePath}</span>
+                      <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                    </a>
+                  )}
                 </div>
               </div>
 
