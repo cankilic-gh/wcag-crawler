@@ -207,6 +207,7 @@ export class ScannerService {
         footer: ['footer', '[role="contentinfo"]'],
         aside: ['aside', '[role="complementary"]'],
         main: ['main', '[role="main"]'],
+        body: ['body'],
       };
 
       for (const [regionName, selectors] of Object.entries(regionSelectors)) {

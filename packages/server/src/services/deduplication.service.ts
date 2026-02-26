@@ -212,17 +212,17 @@ export class DeduplicationService {
   ): SharedComponent[] {
     const sharedComponents: SharedComponent[] = [];
 
-    // Group pages by main region fingerprint
+    // Group pages by content fingerprint: prefer main, fallback to body
     const mainFingerprintGroups = new Map<string, typeof pages>();
 
     for (const page of pages) {
-      const mainFingerprint = page.regions_fingerprint?.main;
-      if (!mainFingerprint) continue;
+      const contentFingerprint = page.regions_fingerprint?.main || page.regions_fingerprint?.body;
+      if (!contentFingerprint) continue;
 
-      if (!mainFingerprintGroups.has(mainFingerprint)) {
-        mainFingerprintGroups.set(mainFingerprint, []);
+      if (!mainFingerprintGroups.has(contentFingerprint)) {
+        mainFingerprintGroups.set(contentFingerprint, []);
       }
-      mainFingerprintGroups.get(mainFingerprint)!.push(page);
+      mainFingerprintGroups.get(contentFingerprint)!.push(page);
     }
 
     for (const [fingerprint, duplicatePages] of mainFingerprintGroups) {

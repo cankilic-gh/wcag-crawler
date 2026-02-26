@@ -114,6 +114,18 @@ export class CrawlerService {
       // Give page a moment to finish loading dynamic content
       await page.waitForTimeout(1000);
 
+      // Check for redirect duplicates: if the page redirected to an already-visited URL, skip it
+      const finalUrl = normalizeUrl(page.url());
+      if (finalUrl !== url) {
+        if (this.visited.has(finalUrl)) {
+          logger.debug(`Skipping redirect duplicate: ${url} → ${finalUrl}`);
+          await page.close();
+          return null;
+        }
+        // Mark the final URL as visited to prevent future duplicates
+        this.visited.add(finalUrl);
+      }
+
       const httpStatus = response?.status() || 0;
       const loadTimeMs = Date.now() - startTime;
 

@@ -36,7 +36,7 @@ function normalizeHtmlStructure(html: string): string {
   return normalized.trim();
 }
 
-export type DomRegion = 'header' | 'nav' | 'footer' | 'aside' | 'main' | 'unknown';
+export type DomRegion = 'header' | 'nav' | 'footer' | 'aside' | 'main' | 'body' | 'unknown';
 
 export function detectRegionFromSelector(selector: string): DomRegion {
   const lowerSelector = selector.toLowerCase();
