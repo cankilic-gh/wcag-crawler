@@ -223,11 +223,14 @@ export class ScannerService {
             }
             nodesToRemove.forEach(node => node.parentNode?.removeChild(node));
 
-            // Remove volatile attributes
+            // Remove volatile attributes (including URL-referencing attrs that differ between duplicate pages)
             clone.querySelectorAll('*').forEach(el => {
               el.removeAttribute('id');
               el.removeAttribute('style');
               el.removeAttribute('value');
+              el.removeAttribute('action');
+              el.removeAttribute('href');
+              el.removeAttribute('src');
               Array.from(el.attributes).forEach(attr => {
                 if (attr.name.startsWith('data-')) {
                   el.removeAttribute(attr.name);

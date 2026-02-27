@@ -15,7 +15,7 @@ function normalizeHtmlStructure(html: string): string {
   let normalized = html.replace(/>([^<]+)</g, '><');
 
   // Remove volatile attributes
-  const volatileAttrs = ['id', 'style', 'nonce', 'csrf', 'value', 'data-[^=]*'];
+  const volatileAttrs = ['id', 'style', 'nonce', 'csrf', 'value', 'action', 'href', 'src', 'data-[^=]*'];
   for (const attr of volatileAttrs) {
     const regex = new RegExp(`\\s${attr}="[^"]*"`, 'gi');
     normalized = normalized.replace(regex, '');

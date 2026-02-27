@@ -64,6 +64,21 @@ export class DeduplicationService {
       sharedComponents.push(...duplicatePageComponents);
     }
 
+    // Phase 4.5: Issue-signature fallback dedup
+    // Catches duplicates missed by fingerprinting (e.g., form action attr differences)
+    const alreadyDeduped = new Set<string>();
+    for (const sc of sharedComponents) {
+      if (sc.region === 'duplicate-page') {
+        for (const url of sc.page_urls) alreadyDeduped.add(url);
+      }
+    }
+    const remainingPages = pages.filter(p => !alreadyDeduped.has(p.url));
+    const issueSignatureComponents = this.identifyDuplicatesByIssueSignature(scanId, remainingPages);
+    if (issueSignatureComponents.length > 0) {
+      this.saveSharedComponents(issueSignatureComponents);
+      sharedComponents.push(...issueSignatureComponents);
+    }
+
     logger.info(`Deduplication complete: ${sharedComponents.length} shared components found`, { scanId });
 
     return sharedComponents;
@@ -279,6 +294,106 @@ export class DeduplicationService {
         });
 
         logger.debug(`Found duplicate pages: ${shortUrls.join(', ')} (${markedCount} shared issues)`);
+      }
+    }
+
+    return sharedComponents;
+  }
+
+  /**
+   * Phase 4.5: Fallback duplicate detection using page title + issue signature.
+   * If two pages have the same title AND the exact same set of issues (rule_id + selector),
+   * they are almost certainly the same page served at different URLs.
+   */
+  private identifyDuplicatesByIssueSignature(
+    scanId: string,
+    pages: Array<{ id: string; url: string; regions_fingerprint: Record<string, string> | null }>
+  ): SharedComponent[] {
+    const sharedComponents: SharedComponent[] = [];
+
+    // Build issue signature per page: sorted list of (rule_id:selector)
+    const pageSignatures = new Map<string, { page: typeof pages[0]; title: string; signature: string }>();
+
+    for (const page of pages) {
+      const fullPage = PageModel.findById(page.id);
+      if (!fullPage?.title) continue;
+
+      const issues = IssueModel.findByPageId(page.id);
+      if (issues.length === 0) continue;
+
+      const sigParts = issues
+        .filter(i => !i.is_shared_component)
+        .map(i => `${i.axe_rule_id}:${i.target_selector || ''}`)
+        .sort();
+
+      if (sigParts.length === 0) continue;
+
+      const signature = sigParts.join('|');
+      const groupKey = `${fullPage.title}::${signature}`;
+
+      pageSignatures.set(page.id, { page, title: fullPage.title, signature: groupKey });
+    }
+
+    // Group by title + issue signature
+    const signatureGroups = new Map<string, Array<{ page: typeof pages[0]; title: string }>>();
+    for (const [, entry] of pageSignatures) {
+      if (!signatureGroups.has(entry.signature)) {
+        signatureGroups.set(entry.signature, []);
+      }
+      signatureGroups.get(entry.signature)!.push({ page: entry.page, title: entry.title });
+    }
+
+    for (const [, group] of signatureGroups) {
+      if (group.length < 2) continue;
+
+      const duplicatePages = group.map(g => g.page);
+      const pageUrls = duplicatePages.map(p => p.url);
+
+      const allIssues: Issue[] = [];
+      for (const page of duplicatePages) {
+        const pageIssues = IssueModel.findByPageId(page.id);
+        allIssues.push(...pageIssues);
+      }
+
+      const issueGroups = new Map<string, Issue[]>();
+      for (const issue of allIssues) {
+        if (issue.is_shared_component) continue;
+        const key = `${issue.axe_rule_id}:${issue.target_selector || ''}`;
+        if (!issueGroups.has(key)) {
+          issueGroups.set(key, []);
+        }
+        issueGroups.get(key)!.push(issue);
+      }
+
+      const componentId = `sc_${nanoid(12)}`;
+      let markedCount = 0;
+
+      for (const [, issues] of issueGroups) {
+        const issuePageIds = new Set(issues.map(i => i.page_id));
+        if (issuePageIds.size >= 2) {
+          IssueModel.markManyAsSharedComponent(issues.map(i => i.id), componentId);
+          markedCount++;
+        }
+      }
+
+      if (markedCount > 0) {
+        const shortUrls = pageUrls.map(u => {
+          try { return new URL(u).pathname; } catch { return u; }
+        });
+
+        sharedComponents.push({
+          id: componentId,
+          scan_id: scanId,
+          region: 'duplicate-page',
+          fingerprint: `issue-sig:${shortUrls.join('+')}`,
+          label: `Duplicate Page: ${shortUrls.join(', ')}`,
+          page_count: duplicatePages.length,
+          issue_count: markedCount,
+          sample_html: null,
+          page_urls: pageUrls,
+        });
+
+        logger.debug(`Found duplicate pages by issue signature: ${shortUrls.join(', ')} (${markedCount} shared issues)`);
       }
     }
 
