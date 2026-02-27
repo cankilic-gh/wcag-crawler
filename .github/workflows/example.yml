@@ -1,0 +1,84 @@
+# Example: WCAG Accessibility Audit for your CI/CD pipeline
+#
+# This workflow shows how to use the WCAG Accessibility Scanner action
+# to automatically check your website for WCAG 2.1 AA accessibility issues.
+#
+# Usage:
+#   1. Copy this file to .github/workflows/a11y.yml in your repository
+#   2. Replace the URL with your website
+#   3. Adjust threshold and other settings as needed
+#
+# The action uses the hosted WCAG Crawler API - no local Playwright or
+# browser installation needed in your CI runner.
+
+name: Accessibility Audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Run weekly on Monday at 6am UTC
+  schedule:
+    - cron: '0 6 * * 1'
+  # Allow manual trigger from Actions tab
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'URL to scan'
+        required: true
+        default: 'https://example.com'
+      threshold:
+        description: 'Minimum score (0-100)'
+        required: false
+        default: '0'
+
+jobs:
+  a11y-scan:
+    name: WCAG Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run Accessibility Scan
+        id: a11y
+        uses: cankilic-gh/wcag-crawler@main
+        with:
+          url: ${{ github.event.inputs.url || 'https://example.com' }}
+          max-pages: '50'
+          max-depth: '3'
+          threshold: ${{ github.event.inputs.threshold || '70' }}
+          fail-on-critical: 'true'
+
+      - name: Print Results
+        if: always()
+        run: |
+          echo "Score: ${{ steps.a11y.outputs.score }}"
+          echo "Total Issues: ${{ steps.a11y.outputs.total-issues }}"
+          echo "Critical: ${{ steps.a11y.outputs.critical-count }}"
+          echo "Serious: ${{ steps.a11y.outputs.serious-count }}"
+          echo "Report: ${{ steps.a11y.outputs.report-url }}"
+
+  # Example: Multi-site scan
+  # Scan multiple URLs in parallel
+  multi-site-scan:
+    name: Multi-site Scan
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Homepage
+            url: https://example.com
+            threshold: 80
+          - name: Blog
+            url: https://example.com/blog
+            threshold: 70
+          - name: Docs
+            url: https://example.com/docs
+            threshold: 75
+    steps:
+      - name: Scan ${{ matrix.name }}
+        uses: cankilic-gh/wcag-crawler@main
+        with:
+          url: ${{ matrix.url }}
+          threshold: ${{ matrix.threshold }}
+          fail-on-critical: 'true'
