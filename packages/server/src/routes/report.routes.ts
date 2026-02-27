@@ -87,17 +87,17 @@ function generateExportHtml(report: ReturnType<typeof reportService.generateRepo
   <title>A11y Report - ${scan.root_url}</title>
   <style>
     :root {
-      --bg: #0a0a0f;
-      --surface: #13131a;
-      --border: #1e1e2e;
-      --primary: #6366f1;
-      --critical: #ef4444;
-      --serious: #f97316;
-      --moderate: #eab308;
-      --minor: #3b82f6;
-      --success: #22c55e;
-      --text: #e2e8f0;
-      --text-muted: #94a3b8;
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #e2e5e9;
+      --primary: #4f46e5;
+      --critical: #dc2626;
+      --serious: #ea580c;
+      --moderate: #ca8a04;
+      --minor: #2563eb;
+      --success: #16a34a;
+      --text: #1f2937;
+      --text-muted: #6b7280;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -118,6 +118,7 @@ function generateExportHtml(report: ReturnType<typeof reportService.generateRepo
       border-radius: 1rem;
       padding: 2rem;
       margin-bottom: 2rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
       display: flex;
       align-items: center;
       gap: 2rem;
@@ -133,9 +134,9 @@ function generateExportHtml(report: ReturnType<typeof reportService.generateRepo
       font-weight: bold;
       font-family: 'JetBrains Mono', monospace;
     }
-    .score-circle.good { background: linear-gradient(135deg, #22c55e33, #22c55e11); border: 3px solid var(--success); }
-    .score-circle.moderate { background: linear-gradient(135deg, #eab30833, #eab30811); border: 3px solid var(--moderate); }
-    .score-circle.poor { background: linear-gradient(135deg, #ef444433, #ef444411); border: 3px solid var(--critical); }
+    .score-circle.good { background: #dcfce7; border: 3px solid var(--success); color: var(--success); }
+    .score-circle.moderate { background: #fef9c3; border: 3px solid var(--moderate); color: var(--moderate); }
+    .score-circle.poor { background: #fee2e2; border: 3px solid var(--critical); color: var(--critical); }
     .metrics { display: flex; gap: 2rem; }
     .metric { text-align: center; }
     .metric-value { font-size: 1.5rem; font-weight: bold; font-family: 'JetBrains Mono', monospace; }
@@ -157,6 +158,7 @@ function generateExportHtml(report: ReturnType<typeof reportService.generateRepo
       border-radius: 0.5rem;
       padding: 1rem;
       margin-bottom: 1rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
     }
     .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
     .card-title { font-weight: 600; }
@@ -168,11 +170,11 @@ function generateExportHtml(report: ReturnType<typeof reportService.generateRepo
       font-weight: 500;
       text-transform: uppercase;
     }
-    .badge-critical { background: #ef444422; color: var(--critical); }
-    .badge-serious { background: #f9731622; color: var(--serious); }
-    .badge-moderate { background: #eab30822; color: var(--moderate); }
-    .badge-minor { background: #3b82f622; color: var(--minor); }
-    .issue { padding: 0.75rem; border-left: 3px solid var(--border); margin-bottom: 0.5rem; background: var(--bg); }
+    .badge-critical { background: #fee2e2; color: var(--critical); }
+    .badge-serious { background: #ffedd5; color: var(--serious); }
+    .badge-moderate { background: #fef9c3; color: var(--moderate); }
+    .badge-minor { background: #dbeafe; color: var(--minor); }
+    .issue { padding: 0.75rem; border-left: 3px solid var(--border); margin-bottom: 0.5rem; background: #f3f4f6; }
     .issue-critical { border-left-color: var(--critical); }
     .issue-serious { border-left-color: var(--serious); }
     .issue-moderate { border-left-color: var(--moderate); }
@@ -180,9 +182,10 @@ function generateExportHtml(report: ReturnType<typeof reportService.generateRepo
     .code {
       font-family: 'Fira Code', monospace;
       font-size: 0.75rem;
-      background: var(--bg);
+      background: #eef0f2;
       padding: 0.5rem;
       border-radius: 0.25rem;
+      border: 1px solid var(--border);
       overflow-x: auto;
       margin-top: 0.5rem;
     }
