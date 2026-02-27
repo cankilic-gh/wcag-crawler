@@ -30,6 +30,7 @@ Phase 3: ANALYZING (deduplication.service.ts)
   - Phase 2b: Groups by repeated selectors across pages
   - Phase 3: Marks issues as shared_component
   - Phase 4: Identifies content-duplicate pages (main OR body fingerprint fallback)
+  - Phase 4.5: Issue-signature fallback (title + identical issues = duplicate)
 
 Phase 4: REPORTING (report.service.ts)
   - Calculates weighted score (critical*25, serious*10, moderate*3, minor*1)
@@ -48,14 +49,16 @@ Phase 4: REPORTING (report.service.ts)
 
 ### URL Deduplication (3-layer system - DO NOT REGRESS)
 1. **Crawler redirect check:** After page.goto(), compare final URL with original. Skip if final URL already visited.
-2. **Scanner body fingerprint:** Always generate `body` region fingerprint as fallback when `<main>` element is absent.
+2. **Scanner body fingerprint:** Always generate `body` region fingerprint as fallback when `<main>` element is absent. Strips `action`, `href`, `src` attributes to prevent URL-referencing attrs from breaking fingerprint matches.
 3. **Dedup Phase 4:** Uses `main` fingerprint first, falls back to `body` fingerprint for content-duplicate page detection.
+4. **Dedup Phase 4.5:** Issue-signature fallback — groups pages with same title AND identical issue sets (rule_id + selector) as duplicates, even if fingerprints don't match.
 
 **Edge cases to verify when touching dedup:**
 - (a) Redirect duplicates: /faq -> /faq.action
 - (b) Framework suffix variants: /page vs /page.action, /page.do, /page.jsf
 - (c) Query param variants: /news?id=1 vs /news?id=2 (pattern limiter, MAX_URLS_PER_PATTERN=3)
 - (d) Content-identical with different URLs (no redirect)
+- (e) Same title + same issues but different fingerprints (form action attr differences)
 
 ### axe-core Timing
 - axe-core analyze() has NO built-in timeout - always wrap with Promise.race(60s)
