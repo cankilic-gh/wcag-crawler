@@ -1,181 +1,134 @@
-# I Built a Free WCAG Scanner That Finds 50x Fewer Duplicate Issues -- Here's How
+# I Built a Free Tool That Scans Your Entire Website for Accessibility Issues -- And Tells You Exactly How to Fix Them
 
-**According to WebAIM's 2024 annual analysis, 96.3% of the top 1 million websites have detectable WCAG failures.** That is not a typo. Nearly every website you visit today has accessibility problems that affect real people.
+Ok so here's the thing. You know how 96.3% of the top million websites fail WCAG standards? (That's from WebAIM's 2024 report, not me being dramatic.) I kept running into the same problem -- I'd finish building a site, run Lighthouse on a couple pages, get a few green scores, and call it accessible. Spoiler: it wasn't.
 
-I have been building accessible web applications for years, and I know that statistic is not going to surprise most developers. What might surprise you is why so few teams actually fix those issues -- even when they have the tools to find them.
+The real issue is that most tools only check **one page at a time**. But accessibility problems live across your entire site. That missing alt text on your header logo? It's on every single page. That low-contrast button in the footer? Same thing. You don't know this until you check all the pages, and nobody's doing that manually on a 50-page site.
 
-The answer is noise.
+So I built [WCAG Crawler](https://wcag.thegridbase.com) -- a free, open-source tool that crawls your entire website, tests every page against **WCAG 2.1 Level AA** standards, and gives you a report with actual fix suggestions. Not just "this is broken" but "here's the code, here's what's wrong, here's how to fix it."
 
-I got tired of scrolling through 200+ identical accessibility issues, knowing that 180 of them were the exact same missing alt text in a shared header component. So I built something better.
-
----
-
-## The Problem With Traditional Accessibility Scanners
-
-Here is a scenario every frontend developer and QA engineer recognizes. You run an accessibility audit on a 50-page website. The report comes back with 347 issues. You open it, ready to improve your site, and you see:
-
-- Page 1: "Images must have alternate text" (header logo)
-- Page 2: "Images must have alternate text" (header logo)
-- Page 3: "Images must have alternate text" (header logo)
-- ...
-- Page 50: "Images must have alternate text" (header logo)
-
-That is 50 entries for a single image in a shared header component. The same pattern repeats for the navigation, the footer, and every other element that appears on every page. Your 347-issue report actually contains maybe 15 unique problems -- but you have to wade through the noise to find them.
-
-**This is why developers ignore accessibility reports.** Not because they do not care, but because the signal-to-noise ratio is unbearable.
-
-The problem gets worse at scale. Enterprise sites with hundreds or thousands of pages generate reports with tens of thousands of issues. Government agencies that are legally required to meet Section 508 compliance standards drown in false volume. Web agencies trying to deliver accessibility audits to clients spend hours manually deduplicating results.
-
-Traditional automated accessibility testing tools are excellent at finding issues. They are terrible at telling you which issues actually matter and how many unique problems you need to fix.
+You can [try it right now](https://wcag.thegridbase.com) -- paste a URL, hit scan, done. No signup, no credit card, nothing.
 
 ---
 
-## The Solution: Smart Component Deduplication
+## Why I Built This
 
-I built [WCAG Crawler](https://wcag.thegridbase.com) -- a free, open-source website accessibility checker that automatically groups shared component issues so you see each unique problem exactly once.
+I was working on a project for a client who needed Section 508 compliance. I ran the usual tools -- Lighthouse, WAVE, axe DevTools. They're all great, don't get me wrong. But they all do the same thing: check one page, show you a list of issues, and that's it.
 
-Here is what the difference looks like in practice:
+My client had 80+ pages. I was supposed to... run Lighthouse 80 times? Copy-paste results into a spreadsheet? Manually figure out which issues are duplicates because the same header component shows up on every page?
 
+No thanks.
+
+What I actually needed was:
+1. Point it at a URL
+2. Let it find all the pages automatically
+3. Get one clean report for the whole site
+4. See exactly what to fix and how
+
+That tool didn't exist the way I wanted it to. So I built it. And then I [open-sourced it](https://github.com/cankilic-gh/wcag-crawler).
+
+---
+
+## What It Actually Does
+
+You go to [wcag.thegridbase.com](https://wcag.thegridbase.com), type in your URL, and click Scan. That's literally it. Here's what happens behind the scenes:
+
+### 1. It Crawls Your Site
+
+WCAG Crawler uses Playwright (a real Chromium browser, not some HTML parser) to visit your start URL and discover every linked page on your domain. It follows links, respects your page limits, and builds a map of your site.
+
+You can configure how deep it goes:
+
+| Setting | Default | What It Means |
+|---------|---------|---------------|
+| Max Pages | 100 | How many pages to check |
+| Max Depth | 5 | How many clicks deep from your start URL |
+| Concurrency | 3 | Pages scanned at the same time |
+| Exclude Patterns | None | URLs to skip (like `/logout` or `*.pdf`) |
+| Viewport | 1280x720 | Browser size for the test |
+
+### 2. It Tests Every Page Against WCAG 2.1 AA
+
+Each page gets loaded in a real browser and tested with [axe-core](https://github.com/dequelabs/axe-core) -- the same engine Microsoft, Google, and the U.S. Department of Homeland Security use. We're talking the full WCAG 2.1 Level AA ruleset:
+
+- Color contrast ratios
+- Missing alt text on images
+- ARIA attributes and landmark regions
+- Keyboard navigation and focus management
+- Form labels and error handling
+- Heading hierarchy
+- And dozens more rules
+
+This isn't a static HTML check. It evaluates the fully rendered page -- JavaScript content, dynamic elements, the works. If a screen reader would struggle with it, axe-core catches it.
+
+You can watch all of this happen in real-time, by the way. The scanner streams progress updates live, so you see results coming in page by page.
+
+### 3. Smart Deduplication (The Secret Sauce)
+
+Ok so here's where it gets interesting. When you scan 50 pages, a traditional tool gives you 50x the issues because the same header, nav, and footer appear on every page. You end up with 300+ issues when really there are like 20 unique problems.
+
+WCAG Crawler handles this automatically. It fingerprints your shared components (header, navigation, footer, sidebar) and groups duplicate issues together. So instead of seeing "missing alt text" 50 times, you see it once with a note saying "this affects 50 pages."
+
+Your 300-issue nightmare becomes a clean 20-item to-do list. Same issues found, way less noise.
+
+### 4. Actionable Reports
+
+This is the part I'm most proud of. The report doesn't just say "you have problems." It gives you:
+
+- **Severity levels** -- Critical, Serious, Moderate, Minor (so you know what to fix first)
+- **Before/after code examples** -- literally shows you the broken code and the fixed version
+- **WCAG success criteria references** -- which specific standard you're violating
+- **Shared component grouping** -- fix it once in the header, fix it on 50 pages
+- **An overall accessibility score** -- so you can track improvement over time
+
+Here's a quick example. Instead of just saying "Images must have alternate text," the report shows you:
+
+```html
+<!-- What you have -->
+<img src="logo.png">
+
+<!-- What you should have -->
+<img src="logo.png" alt="Company Logo">
 ```
-Traditional Scanner          WCAG Crawler
-------------------          ------------
 
-Page 1: Missing alt text    Shared Header Component:
-Page 2: Missing alt text      Missing alt text
-Page 3: Missing alt text      Affects 50 pages
-...
-Page 50: Missing alt text   = 1 issue to fix!
-
-= 50 issues to review!
-```
-
-Instead of reporting the same header issue 50 times, WCAG Crawler detects that the header is a shared component, groups all its issues together, and tells you how many pages are affected. Your 347-issue report becomes a clean list of 15 actionable items.
-
-This is not just cosmetic. It fundamentally changes how teams approach accessibility compliance. When a developer opens a report and sees 15 clear issues with fix suggestions, they fix them. When they see 347 issues that feel overwhelming and repetitive, they close the tab.
+That's actionable. A junior dev can pick that up and fix it in 30 seconds.
 
 ---
 
-## How the Deduplication Engine Works
+## Who Is This For?
 
-The deduplication system uses a three-layer approach to eliminate duplicate issues without losing any information.
+**Frontend devs** -- Run it against staging before every release. You'll catch stuff Lighthouse misses because you're checking the whole site, not just the homepage. [Try it on your project](https://wcag.thegridbase.com).
 
-### Layer 1: Redirect Detection
+**Agencies and consultants** -- If you do accessibility audits for clients, this gives you a solid automated baseline. The reports are clean enough to share directly. Run the scan, then layer your manual review on top.
 
-Many websites have the same page accessible via multiple URLs. Think `/faq` redirecting to `/faq.action`, or `/about` and `/about/` resolving to the same content. During the crawling phase, WCAG Crawler follows every redirect and checks whether the final destination URL has already been visited. If it has, the duplicate URL is skipped entirely.
+**Government and enterprise** -- Section 508 (US), the European Accessibility Act (EU, effective June 2025), ADA Title III... the legal requirements keep growing. If you need to demonstrate compliance across a large site, [WCAG Crawler](https://wcag.thegridbase.com) gives you a complete picture without drowning in duplicates.
 
-This is surprisingly common on enterprise sites running Java frameworks (Struts, Spring MVC, JSF) where URLs like `/page`, `/page.do`, `/page.action`, and `/page.jsf` all serve the same content.
-
-### Layer 2: DOM Structure Fingerprinting
-
-This is the core innovation. After scanning each page, WCAG Crawler creates structural fingerprints for every major DOM region -- header, navigation, footer, sidebar, and main content area.
-
-The fingerprinting algorithm looks at the DOM structure of each region while ignoring dynamic content like text, URLs, and image sources. Two headers with different menu text but identical structure produce the same fingerprint. This means the scanner can confidently say: "These 50 pages all share the same header component, so any accessibility issues in that header only need to be reported once."
-
-The engine also detects repeated elements by CSS selector. If the same `#search-button` appears on every page with the same accessibility issue, that gets grouped too.
-
-### Layer 3: Content-Duplicate Page Detection
-
-Some pages have completely identical content but no redirect relationship -- they are just different URLs serving the same page. WCAG Crawler catches these by comparing main content fingerprints across all pages. When there is no `<main>` element on the page, it falls back to a full body fingerprint with dynamic attributes stripped out.
-
-There is even a final fallback layer: if two pages have the same title and an identical set of accessibility issues (same rules and selectors), they are treated as duplicates even if their DOM fingerprints do not match perfectly. This catches edge cases like forms with different `action` attributes but otherwise identical markup.
+**QA teams** -- There's an API and a [GitHub Action](https://github.com/cankilic-gh/wcag-crawler) you can drop into your CI/CD pipeline. Set a score threshold, fail the build if accessibility regresses. Done.
 
 ---
 
-## What WCAG Crawler Tests
+## How It Compares to Other Tools
 
-WCAG Crawler performs a full **WCAG 2.1 Level AA** audit on every page it scans. Under the hood, it uses [axe-core](https://github.com/dequelabs/axe-core) -- the same accessibility testing engine trusted by Microsoft, Google, and the U.S. Department of Homeland Security.
+Let me be real -- WAVE, Lighthouse, pa11y, axe DevTools are all good tools. I use some of them myself. But they solve a different problem.
 
-The scan process works in four phases:
+Those tools check **one page**. Great for development. But when you need a site-wide audit? You're on your own.
 
-**1. Crawling** -- You enter a URL, and WCAG Crawler automatically discovers every linked page within your domain using Playwright, a real browser automation engine. It respects configurable limits for maximum pages, crawl depth, and URL patterns to exclude.
+WCAG Crawler checks **your entire site** in one go. It automatically discovers pages, deduplicates shared component issues, and gives you one unified report. That's the difference.
 
-**2. Scanning** -- Each discovered page is loaded in a real Chromium browser and tested against WCAG 2.1 AA criteria. This is not a static HTML check -- it evaluates the fully rendered page, including JavaScript-generated content, ARIA attributes, color contrast, keyboard navigation patterns, and more.
-
-**3. Smart Deduplication** -- The three-layer deduplication engine analyzes all results, identifies shared components, groups duplicate issues, and marks content-duplicate pages.
-
-**4. Actionable Reporting** -- The final report gives you:
-- Issues grouped by severity: Critical, Serious, Moderate, and Minor
-- Shared component summaries showing how many pages each issue affects
-- Before and after code examples showing exactly how to fix each issue
-- WCAG success criteria references for every violation
-- Direct links to Deque University for detailed remediation guidance
-
-You get real-time progress updates via WebSocket as the scan runs, so you can watch the results come in page by page.
+| | Single-Page Tools | WCAG Crawler |
+|---|---|---|
+| Pages checked | 1 at a time | Whole site automatically |
+| Duplicate handling | None | Smart component dedup |
+| Fix suggestions | Sometimes | Before/after code examples |
+| CI/CD integration | Varies | GitHub Action ready |
+| Price | Varies | Free and open source |
 
 ---
 
-## Who Should Use This
+## Running It Yourself
 
-### Government Agencies
+### Fastest Way -- Use the Hosted Version
 
-**Section 508** in the United States requires federal agencies and their contractors to make electronic and information technology accessible. The **European Accessibility Act (EAA)**, which takes full effect in June 2025, mandates accessibility for digital products and services across the EU. If your organization falls under either mandate, you need a way to audit your web properties systematically. WCAG Crawler lets you scan entire sites and get a clear picture of your compliance posture without drowning in duplicate findings.
-
-### Web Agencies and Consultants
-
-If you offer accessibility audits as a service, WCAG Crawler gives you a professional-grade starting point. The deduplicated reports are client-ready -- they communicate real issues without overwhelming non-technical stakeholders with hundreds of repeated line items. Run a scan, export the report, and use it as the foundation for your manual review.
-
-### Enterprise Companies
-
-**ADA-related web accessibility lawsuits continue to rise**, with the average settlement around $13,000 and some cases reaching six figures. Beyond litigation risk, accessibility issues directly impact your customer base -- an estimated 16% of the global population lives with some form of disability. WCAG Crawler helps enterprise teams proactively identify and prioritize accessibility issues across large web properties.
-
-### Frontend Developers
-
-If you care about building inclusive products (and you should), WCAG Crawler integrates into your development workflow. Run it against your staging environment before every release. The before-and-after code examples make it easy to understand and fix each issue, even if you are not an accessibility expert.
-
-### QA Teams
-
-Accessibility is a quality attribute. WCAG Crawler provides an API you can integrate into your CI/CD pipeline to catch regressions before they reach production. The programmatic API supports starting scans, polling for results, and exporting reports -- everything you need for automated quality gates.
-
----
-
-## The Tech Stack
-
-For those who want to know what is under the hood:
-
-- **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, Zustand for state management
-- **Backend:** Node.js, Express, Playwright for browser automation, axe-core for accessibility testing
-- **Database:** SQLite via better-sqlite3 (fast, zero-configuration, serverless)
-- **Real-time:** Socket.IO for live scan progress updates
-- **Architecture:** pnpm monorepo with separate client and server packages
-
-The entire project is **open source under the MIT license**. You can self-host it on your own infrastructure, deploy the backend to Railway or Render, and put the frontend on Vercel. There is also a Docker setup for one-command deployment.
-
-Or just use the **free hosted version** at [wcag.thegridbase.com](https://wcag.thegridbase.com) -- no sign-up required.
-
----
-
-## Configuration and Customization
-
-WCAG Crawler is configurable out of the box:
-
-| Option | Default | What It Does |
-|--------|---------|--------------|
-| Max Pages | 100 | Maximum pages to crawl per scan |
-| Max Depth | 5 | How many links deep to follow from the start URL |
-| Concurrency | 3 | Number of pages scanned simultaneously |
-| Delay | 500ms | Pause between scan batches to avoid overloading servers |
-| Exclude Patterns | None | URL patterns to skip (e.g., `/logout`, `*.pdf`) |
-| Viewport | 1280x720 | Browser viewport size for responsive testing |
-
-For enterprise sites, you can increase the page limit and concurrency. For servers that are sensitive to load, increase the delay. The exclude patterns let you skip authentication-gated pages, binary downloads, or any URL patterns that are not relevant to your audit.
-
----
-
-## How It Compares
-
-There are many accessibility testing tools available -- WAVE, Lighthouse, pa11y, Tenon, and others. Most of them are excellent single-page scanners. WCAG Crawler is not trying to replace them. It solves a different problem.
-
-**Single-page tools** are great for checking individual pages during development. WCAG Crawler is for **site-wide audits** -- when you need to understand the accessibility posture of an entire web property, not just one page.
-
-The key differentiator is deduplication. When you scan 100 pages with any other tool and aggregate the results, you get 100x the noise. When you scan 100 pages with WCAG Crawler, you get a clean, deduplicated report that tells you exactly what to fix and how many pages each fix will improve.
-
----
-
-## Getting Started
-
-### Use the Hosted Version
-
-Go to [wcag.thegridbase.com](https://wcag.thegridbase.com), paste a URL, and click Scan. That is it. No account needed, no installation, no configuration.
+Go to **[wcag.thegridbase.com](https://wcag.thegridbase.com)** and scan. No signup. No install. Free.
 
 ### Self-Host
 
@@ -187,7 +140,7 @@ pnpm db:migrate
 pnpm dev
 ```
 
-The app runs on `localhost:5173` (frontend) and `localhost:3001` (backend). You need Node.js 20 or later and pnpm.
+Frontend runs on `localhost:5173`, backend on `localhost:3001`. You need Node.js 20+ and pnpm.
 
 ### Docker
 
@@ -196,7 +149,7 @@ cd docker
 docker-compose up -d
 ```
 
-### Use the API
+### API
 
 ```bash
 # Start a scan
@@ -208,48 +161,73 @@ curl -X POST https://wcag.thegridbase.com/api/scans \
 curl https://wcag.thegridbase.com/api/reports/{scanId}
 ```
 
+### GitHub Action
+
+```yaml
+- uses: cankilic-gh/wcag-crawler@main
+  with:
+    url: 'https://your-site.com'
+    threshold: 70
+    fail-on-critical: true
+```
+
+Fail your build when accessibility drops. Your future self will thank you.
+
 ---
 
-## Why Accessibility Matters More Than Ever
+## The Tech Stack (For the Curious)
 
-Web accessibility is not optional. It is a legal requirement in a growing number of jurisdictions:
+- **Frontend:** React 18, TypeScript, Vite, Tailwind CSS
+- **Backend:** Node.js, Express, Playwright, axe-core
+- **Database:** SQLite (zero config, serverless)
+- **Real-time:** Socket.IO for live progress
+- **Monorepo:** pnpm workspaces
 
-- **United States:** ADA Title III and Section 508 of the Rehabilitation Act
-- **European Union:** European Accessibility Act (EAA), effective June 2025
+Everything is MIT licensed. Fork it, self-host it, contribute to it -- whatever works for you.
+
+---
+
+## Why Accessibility Matters (The Quick Version)
+
+1.3 billion people worldwide live with some form of disability. That's 16% of the global population. When your site isn't accessible, you're shutting the door on 1 in 6 potential users.
+
+And it's not just the right thing to do -- it's increasingly the law:
+
+- **US:** ADA Title III + Section 508
+- **EU:** European Accessibility Act (June 2025)
 - **Canada:** Accessible Canada Act
-- **United Kingdom:** Equality Act 2010 and Public Sector Bodies Accessibility Regulations
+- **UK:** Equality Act 2010
 - **Australia:** Disability Discrimination Act
 
-Beyond legal compliance, accessibility is simply good engineering. The curb cut effect -- the principle that accommodations designed for people with disabilities often benefit everyone -- applies directly to the web. Captions help people in noisy environments. Keyboard navigation helps power users. Semantic HTML helps search engines. High contrast helps people using screens in bright sunlight.
+ADA web accessibility lawsuits are trending up every year. Average settlement is around $13K, but some hit six figures. Way cheaper to just fix the issues upfront.
 
-An estimated 1.3 billion people worldwide live with some form of disability. When your website is inaccessible, you are excluding roughly 16% of the global population from using your product.
-
----
-
-## What Comes Next
-
-WCAG Crawler is actively developed and open to contributions. Here is what is on the roadmap:
-
-- **GitHub Action** for automated accessibility checks in CI/CD pipelines
-- **Historical trend tracking** to monitor accessibility improvements over time
-- **WCAG 2.2 support** as axe-core adds new rules
-- **PDF and CSV export** for compliance documentation
-- **Multi-site dashboards** for agencies managing multiple properties
-
-If you want to contribute, the project is on [GitHub](https://github.com/cankilic-gh/wcag-crawler). Issues and pull requests are welcome.
+Plus, accessible code is better code. Semantic HTML helps SEO. Keyboard nav helps power users. Good contrast helps everyone on a sunny day. It's a win across the board.
 
 ---
 
-## Try It Now
+## What's Next
 
-The best time to start testing for accessibility was yesterday. The second best time is now.
+The project is actively maintained and I've got plans:
 
-- **Try it free:** [wcag.thegridbase.com](https://wcag.thegridbase.com)
-- **Star on GitHub:** [github.com/cankilic-gh/wcag-crawler](https://github.com/cankilic-gh/wcag-crawler)
-- **Report issues:** [GitHub Issues](https://github.com/cankilic-gh/wcag-crawler/issues)
+- Historical trend tracking -- see your score improve over time
+- WCAG 2.2 support as axe-core adds new rules
+- PDF/CSV export for compliance docs
+- Multi-site dashboards for agencies
 
-If this tool helps you find and fix accessibility issues, consider sharing it with your team. Every site we make accessible is a step toward a more inclusive web.
+Want to contribute? [The repo is here](https://github.com/cankilic-gh/wcag-crawler). Issues and PRs are welcome.
 
 ---
 
-*Tags: Accessibility, Web Development, WCAG, Open Source, JavaScript*
+## Try It
+
+Seriously, go scan your site right now. It takes 2 minutes and you might be surprised what you find.
+
+**[wcag.thegridbase.com](https://wcag.thegridbase.com)** -- free, no signup, open source.
+
+If it helps you out, drop a star on [GitHub](https://github.com/cankilic-gh/wcag-crawler). It helps other devs find the tool.
+
+See you in the issues.
+
+---
+
+*Tags: WCAG, Accessibility, Web Development, Section 508, Open Source, axe-core, a11y*
