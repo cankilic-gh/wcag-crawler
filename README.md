@@ -244,7 +244,7 @@ VITE_SOCKET_URL=https://your-backend.up.railway.app
 
 ## Need Continuous Monitoring?
 
-> Need continuous monitoring, team dashboards, and automated alerts? Check out **[AccessPulse](https://accesspulse.dev)** — our managed platform built on this engine.
+> Need continuous monitoring, team dashboards, and automated alerts? Check out **[AccessPulse](https://accesspulse.thegridbase.com)** — our managed platform built on this engine.
 
 ---
 
@@ -264,7 +264,7 @@ MIT © [TheGridBase](https://thegridbase.com)
 
 <div align="center">
 
-**[Try WCAG Crawler Free](https://wcag.thegridbase.com)** · **[AccessPulse — Managed Monitoring](https://accesspulse.dev)**
+**[Try WCAG Crawler Free](https://wcag.thegridbase.com)** · **[AccessPulse — Managed Monitoring](https://accesspulse.thegridbase.com)**
 
 Built for web accessibility.
 
