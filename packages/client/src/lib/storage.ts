@@ -4,6 +4,8 @@ export interface StoredScan {
   id: string;
   url: string;
   createdAt: string;
+  /** Raw anonymous capability. Never sent for a different scan. */
+  accessToken?: string;
 }
 
 export const scanStorage = {
@@ -32,6 +34,10 @@ export const scanStorage = {
 
   getIds(): string[] {
     return this.getAll().map(s => s.id);
+  },
+
+  getAccessToken(id: string): string | null {
+    return this.getAll().find(scan => scan.id === id)?.accessToken ?? null;
   },
 
   clear(): void {

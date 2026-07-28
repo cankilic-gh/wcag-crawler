@@ -143,14 +143,6 @@ function getIssue(issueId: string) {
   };
 }
 
-function getSharedComponents(scanId: string) {
-  const rows = db.prepare('SELECT * FROM shared_components WHERE scan_id = ?').all(scanId) as Record<string, unknown>[];
-  return rows.map(r => ({
-    ...r,
-    page_urls: JSON.parse(r.page_urls as string),
-  }));
-}
-
 // ---------------------------------------------------------------------------
 // Override the database singleton so production code uses our in-memory DB.
 // We do this by setting DATABASE_PATH to ':memory:' and monkey-patching

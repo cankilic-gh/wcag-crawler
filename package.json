@@ -8,14 +8,37 @@
     "build": "pnpm --filter server build && pnpm --filter client build",
     "start": "pnpm --filter server start",
     "db:migrate": "pnpm --filter server db:migrate",
-    "lint": "pnpm -r lint",
+    "lint": "eslint .",
     "test": "pnpm -r test"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "concurrently": "^8.2.2",
-    "typescript": "^5.3.3"
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "5.2.0",
+    "globals": "^16.5.0",
+    "typescript": "^5.3.3",
+    "typescript-eslint": "^8.65.0"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=20.9.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "vitest@3.2.6>vite": "5.4.21",
+      "recharts>lodash": "4.18.1",
+      "express>path-to-regexp": "0.1.13",
+      "socket.io>socket.io-parser": "4.2.6",
+      "socket.io-client>socket.io-parser": "4.2.6",
+      "socket.io>engine.io": "6.6.7",
+      "engine.io>ws": "8.21.0",
+      "engine.io-client>ws": "8.21.0",
+      "socket.io-adapter>ws": "8.21.0",
+      "express>qs": "6.15.2",
+      "body-parser>qs": "6.15.2",
+      "express>body-parser": "1.20.6",
+      "axios>follow-redirects": "1.16.0",
+      "axios>form-data": "4.0.6"
+    }
   }
 }

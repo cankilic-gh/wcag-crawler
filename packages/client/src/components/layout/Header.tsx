@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Accessibility, History } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { GoogleSignInButton } from '../auth/GoogleSignInButton';
 
 declare const __BUILD_TIME__: string;
 
@@ -18,6 +20,8 @@ function formatBuildTime(iso: string): string {
 }
 
 export function Header() {
+  const { state, role, signOut } = useAuth();
+
   return (
     <header className="fixed top-6 left-1/2 -translate-x-1/2 z-50">
       <div className="floating-header px-3 sm:px-4 py-2 flex items-center gap-3 sm:gap-6 max-w-[calc(100vw-2rem)]">
@@ -42,6 +46,19 @@ export function Header() {
             History
           </Link>
         </nav>
+
+        {state.authenticated ? (
+          <div className="flex items-center gap-2">
+            <span className="hidden xl:inline text-xs text-foreground-muted whitespace-nowrap">
+              {state.email} · {role === 'admin' ? 'Admin' : 'User'}
+            </span>
+            <button type="button" onClick={signOut} className="btn btn-secondary text-xs whitespace-nowrap">
+              Sign out
+            </button>
+          </div>
+        ) : (
+          <GoogleSignInButton />
+        )}
 
         {/* Divider (desktop only) */}
         <div className="hidden md:block w-px h-6 bg-border" />

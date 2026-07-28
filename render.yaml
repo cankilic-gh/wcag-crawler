@@ -18,3 +18,7 @@ services:
       # Render Free has 512 MB RAM; keep Playwright + axe-core within that limit.
       - key: MAX_BROWSER_CONCURRENCY
         value: 1
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: ADMIN_EMAILS
+        value: cankilic.mail@gmail.com

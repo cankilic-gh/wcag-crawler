@@ -34,10 +34,13 @@ export function ScoreSummary({ summary }: ScoreSummaryProps) {
     { name: 'Minor', value: summary.ruleCountBySeverity?.minor || 0, color: SEVERITY_COLORS.minor.hex },
   ];
 
-  const totalIssues = (summary.ruleCountBySeverity?.critical || 0) +
+  const totalRuleSeverityGroups = (summary.ruleCountBySeverity?.critical || 0) +
     (summary.ruleCountBySeverity?.serious || 0) +
     (summary.ruleCountBySeverity?.moderate || 0) +
     (summary.ruleCountBySeverity?.minor || 0);
+  const hasDistinctRuleCount = summary.totalRuleTypes !== undefined;
+  const hasCrossSeverityRules = hasDistinctRuleCount &&
+    totalRuleSeverityGroups > summary.totalRuleTypes!;
 
   return (
     <div className="grid grid-cols-4 gap-4">
@@ -85,15 +88,19 @@ export function ScoreSummary({ summary }: ScoreSummaryProps) {
         <p className="text-sm text-foreground-muted">Pages Scanned</p>
         <div className="mt-4 pt-4 border-t border-border">
           <p className="text-xl font-heading font-bold text-foreground">{summary.totalIssuesDeduplicated}</p>
-          <p className="text-xs text-foreground-muted">Unique Issues</p>
+          <p className="text-xs text-foreground-muted">Deduplicated Findings</p>
         </div>
       </div>
 
       {/* Severity breakdown */}
       <div className="card col-span-2">
         <div className="flex items-center justify-between mb-4">
-          <p className="text-sm text-foreground-muted">Issues by Severity</p>
-          <p className="text-sm text-foreground">{totalIssues} unique {totalIssues === 1 ? 'issue' : 'issues'}</p>
+          <p className="text-sm text-foreground-muted">Rule Types by Severity</p>
+          <p className="text-sm text-foreground">
+            {hasDistinctRuleCount
+              ? `${summary.totalRuleTypes} distinct ${summary.totalRuleTypes === 1 ? 'rule' : 'rules'}`
+              : `${totalRuleSeverityGroups} ${totalRuleSeverityGroups === 1 ? 'rule group' : 'rule groups'}`}
+          </p>
         </div>
 
         {/* Severity bar */}
@@ -103,7 +110,7 @@ export function ScoreSummary({ summary }: ScoreSummaryProps) {
               <div
                 key={item.name}
                 style={{
-                  width: `${(item.value / totalIssues) * 100}%`,
+                  width: `${(item.value / totalRuleSeverityGroups) * 100}%`,
                   backgroundColor: item.color,
                 }}
                 className="transition-all duration-500"
@@ -124,7 +131,7 @@ export function ScoreSummary({ summary }: ScoreSummaryProps) {
                 >
                   {item.value}
                 </p>
-                <p className="text-xs text-foreground-muted">{item.value === 1 ? 'Issue' : 'Issues'}</p>
+                <p className="text-xs text-foreground-muted">{item.value === 1 ? 'Rule' : 'Rules'}</p>
                 {rawCount > item.value && (
                   <p className="text-xs text-foreground-muted/60">{rawCount} occurrences</p>
                 )}
@@ -132,6 +139,11 @@ export function ScoreSummary({ summary }: ScoreSummaryProps) {
             );
           })}
         </div>
+        {hasCrossSeverityRules && (
+          <p className="mt-3 text-xs text-foreground-muted text-right">
+            A rule can appear in more than one severity group.
+          </p>
+        )}
       </div>
     </div>
   );

@@ -1,16 +1,25 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Globe, ChevronDown, ChevronUp, Loader2, ArrowRight, Lock } from 'lucide-react';
 import { scanApi } from '../../lib/api';
 import { scanStorage } from '../../lib/storage';
 import { DEFAULT_SCAN_CONFIG, VIEWPORT_PRESETS, WCAG_VERSIONS } from '../../lib/constants';
 import type { ScanConfig } from '../../types';
+import { useAuth } from '../../contexts/AuthContext';
+import { clientPolicyForRole } from '../../lib/tier-policy';
 
-export function ScanForm() {
+interface ScanFormProps {
+  /** Render the advanced options open on first paint (used by SSR tests). */
+  defaultShowAdvanced?: boolean;
+}
+
+export function ScanForm({ defaultShowAdvanced = false }: ScanFormProps = {}) {
   const navigate = useNavigate();
+  const { role } = useAuth();
+  const policy = clientPolicyForRole(role);
   const [url, setUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(defaultShowAdvanced);
   const [error, setError] = useState<string | null>(null);
 
   const [config, setConfig] = useState<Partial<ScanConfig>>({
@@ -25,6 +34,19 @@ export function ScanForm() {
   const [authEnabled, setAuthEnabled] = useState(false);
   const [authType, setAuthType] = useState<'form' | 'basic'>('form');
   const [authFields, setAuthFields] = useState({ loginUrl: '', username: '', password: '' });
+
+  useEffect(() => {
+    setConfig(current => ({
+      ...current,
+      maxPages: policy.maxPages,
+      maxDepth: policy.maxDepth,
+      concurrency: policy.concurrency,
+    }));
+    if (!policy.allowAuthentication) {
+      setAuthEnabled(false);
+      setAuthFields({ loginUrl: '', username: '', password: '' });
+    }
+  }, [policy.allowAuthentication, policy.concurrency, policy.maxDepth, policy.maxPages]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +68,7 @@ export function ScanForm() {
     try {
       const finalConfig = {
         ...config,
-        authentication: authEnabled && authFields.username
+        authentication: policy.allowAuthentication && authEnabled && authFields.username
           ? {
               authType,
               loginUrl: authType === 'basic' ? url : authFields.loginUrl,
@@ -60,6 +82,7 @@ export function ScanForm() {
         id: result.id,
         url: url,
         createdAt: new Date().toISOString(),
+        accessToken: result.accessToken,
       });
       navigate(`/scans/${result.id}/progress`);
     } catch (err) {
@@ -109,7 +132,7 @@ export function ScanForm() {
         )}
         {!error && (
           <p className="text-xs text-foreground-muted/60 mt-2 text-center">
-            Supports localhost and local network URLs for testing development projects
+            {role === 'anonymous' ? 'Anonymous' : role === 'admin' ? 'Admin' : 'Signed-in'} scan covers up to {policy.maxPages} pages and {policy.maxDepth} levels deep.
           </p>
         )}
       </div>
@@ -140,7 +163,7 @@ export function ScanForm() {
               <input
                 type="range"
                 min="10"
-                max="100"
+                max={policy.maxPages}
                 step="10"
                 value={config.maxPages}
                 onChange={(e) => setConfig({ ...config, maxPages: parseInt(e.target.value) })}
@@ -149,7 +172,7 @@ export function ScanForm() {
               <div className="flex justify-between text-xs text-foreground-muted mt-1">
                 <span>10</span>
                 <span className="font-medium text-foreground">{config.maxPages}</span>
-                <span>100</span>
+                <span>{policy.maxPages}</span>
               </div>
             </div>
 
@@ -163,7 +186,7 @@ export function ScanForm() {
               <input
                 type="range"
                 min="1"
-                max="5"
+                max={policy.maxDepth}
                 value={config.maxDepth}
                 onChange={(e) => setConfig({ ...config, maxDepth: parseInt(e.target.value) })}
                 className="w-full accent-primary"
@@ -171,7 +194,7 @@ export function ScanForm() {
               <div className="flex justify-between text-xs text-foreground-muted mt-1">
                 <span>1</span>
                 <span className="font-medium text-foreground">{config.maxDepth}</span>
-                <span>5</span>
+                <span>{policy.maxDepth}</span>
               </div>
             </div>
           </div>
@@ -242,6 +265,7 @@ export function ScanForm() {
             </div>
           </div>
 
+          {policy.allowAuthentication && (
           <div className="border border-border rounded-xl p-4 space-y-4">
             <label className="flex items-center gap-3 cursor-pointer">
               <input
@@ -335,6 +359,7 @@ export function ScanForm() {
               </div>
             )}
           </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-foreground mb-1">

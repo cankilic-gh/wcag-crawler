@@ -3,13 +3,32 @@ import { chromium } from 'playwright';
 import { ScanModel } from '../models/scan.model.js';
 import { reportService } from '../services/report.service.js';
 import { logger } from '../utils/logger.js';
+import { getPrincipal } from '../auth/middleware.js';
+import { isScanAccessible } from '../auth/scan-access.js';
 
 export function createReportRoutes(): Router {
   const router = Router();
+  router.use((_req, res, next) => {
+    res.set('Cache-Control', 'private, no-store');
+    next();
+  });
+
+  const canAccess = (req: Request, res: Response, scanId: string): boolean => {
+    const access = ScanModel.findAccessById(scanId);
+    return access !== null && isScanAccessible(
+      access,
+      getPrincipal(res),
+      req.header('X-Scan-Token') ?? undefined,
+    );
+  };
 
   // GET /api/reports/:scanId - Get full report
   router.get('/:scanId', (req: Request, res: Response) => {
     try {
+      if (!canAccess(req, res, req.params.scanId)) {
+        res.status(404).json({ error: 'Scan not found' });
+        return;
+      }
       const scan = ScanModel.findById(req.params.scanId);
       if (!scan) {
         res.status(404).json({ error: 'Scan not found' });
@@ -37,6 +56,10 @@ export function createReportRoutes(): Router {
   // GET /api/reports/:scanId/export - Export as HTML or PDF
   router.get('/:scanId/export', async (req: Request, res: Response) => {
     try {
+      if (!canAccess(req, res, req.params.scanId)) {
+        res.status(404).json({ error: 'Scan not found' });
+        return;
+      }
       const scan = ScanModel.findById(req.params.scanId);
       if (!scan) {
         res.status(404).json({ error: 'Scan not found' });
@@ -87,6 +110,10 @@ export function createReportRoutes(): Router {
   // GET /api/reports/:scanId/fix-report - Generate AI-friendly fix instructions
   router.get('/:scanId/fix-report', (req: Request, res: Response) => {
     try {
+      if (!canAccess(req, res, req.params.scanId)) {
+        res.status(404).json({ error: 'Scan not found' });
+        return;
+      }
       const scan = ScanModel.findById(req.params.scanId);
       if (!scan) {
         res.status(404).json({ error: 'Scan not found' });
@@ -381,7 +408,7 @@ function guessFilePath(urlPath: string): string | null {
   return null;
 }
 
-function generateExportHtml(report: ReturnType<typeof reportService.generateReport>): string {
+export function generateExportHtml(report: ReturnType<typeof reportService.generateReport>): string {
   if (!report) return '';
 
   const { scan, summary, sharedComponents, pageSpecificIssues } = report;
@@ -583,6 +610,10 @@ function generateExportHtml(report: ReturnType<typeof reportService.generateRepo
       margin: 4px 0 0 0; padding-left: 18px;
     }
     .evalmethods li { margin-bottom: 3px; }
+    .evalmethods .eval-limitation {
+      margin-top: 8px; padding-top: 8px;
+      border-top: 1px solid #e2e8f0; color: #64748b;
+    }
 
     /* ── Footer ── */
     .ftr {
@@ -723,6 +754,7 @@ function generateExportHtml(report: ReturnType<typeof reportService.generateRepo
       <li><strong>Standard:</strong> WCAG 2.1 Level A and Level AA success criteria.</li>
       <li><strong>Scope:</strong> Automated detection of programmatically identifiable violations including color contrast, missing alt text, ARIA attribute misuse, form labeling, heading structure, keyboard accessibility, and document language.</li>
     </ul>
+    <p class="eval-limitation"><strong>Limitations:</strong> Automated testing detects only programmatically identifiable issues &mdash; a subset of all accessibility barriers. This report does not certify WCAG 2.1, Section 508, or European Accessibility Act (EAA) compliance, and does not replace manual evaluation by a qualified accessibility expert or testing with assistive technologies and real users.</p>
   </div>
 
   <!-- FOOTER -->

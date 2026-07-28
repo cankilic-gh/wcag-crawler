@@ -43,6 +43,9 @@
 3. Add these variables:
    - `VITE_API_URL` = `https://YOUR-BACKEND-URL` (Railway or Render URL)
    - `VITE_SOCKET_URL` = `https://YOUR-BACKEND-URL` (same URL)
+   - `VITE_GOOGLE_CLIENT_ID` = your Google OAuth Web Client ID
+   - Configure the same value as `GOOGLE_CLIENT_ID` on Render
+   - Set `ADMIN_EMAILS=cankilic.mail@gmail.com` on Render
 4. Go to Deployments → Redeploy the latest deployment
 5. Test at https://wcag.thegridbase.com
 

@@ -145,14 +145,40 @@ jobs:
 
 ## Configuration
 
+The server resolves entitlement from a verified principal and clamps numeric
+overages. Anonymous users receive a one-time per-scan capability token; signed-in
+users can access only scans owned by their immutable Google `sub`. Legacy scans
+without an owner or capability are admin-only.
+
+| Role | Pages | Depth | Concurrency | Target-site credentials |
+|------|-------|-------|-------------|-------------------------|
+| Anonymous | 10 | 2 | 1 | No |
+| Verified Google user | 50 | 3 | 2 | No |
+| Allowlisted admin | 100 | 5 | 3 | Yes |
+
+Anonymous scan creation is rate-limited by IP; authenticated scan creation is
+rate-limited by Google subject. Google ID tokens are verified server-side for
+signature, audience, issuer, expiration, immutable `sub`, and verified email.
+
 | Option | Default | Description |
 |--------|---------|-------------|
-| `maxPages` | 100 | Maximum pages to crawl |
-| `maxDepth` | 5 | How many links deep to follow |
-| `concurrency` | 3 | Simultaneous page scans |
+| `maxPages` | Role cap | Maximum pages to crawl |
+| `maxDepth` | Role cap | How many links deep to follow |
+| `concurrency` | Role cap | Simultaneous page scans |
 | `delay` | 500ms | Delay between batches |
 | `excludePatterns` | `[]` | URL patterns to skip (e.g., `/logout`, `*.pdf`) |
 | `viewport` | 1280x720 | Browser viewport size |
+
+Values above a cap are clamped down to it; absolute request validation bounds
+still apply on top. Authentication credentials are used only to log in during a
+scan — they are never persisted to the database or returned by the list,
+detail, or report APIs.
+
+Embed credentials only in the dedicated authentication fields. URLs containing
+userinfo (`user:pass@host`) or credential-like query parameters such as
+`token`, `access_token`, `api_key`, `password`, `session`, or `signature` are
+rejected at scan creation. Legacy stored URLs and crawler-discovered URLs are
+sanitized before persistence, logs, socket events, and report/export output.
 
 ---
 
@@ -161,8 +187,8 @@ jobs:
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `POST` | `/api/scans` | Start a new scan |
-| `GET` | `/api/scans` | List all scans |
-| `GET` | `/api/scans/:id` | Get scan details |
+| `GET` | `/api/scans` | List caller-owned scans (admin: all; anonymous: none) |
+| `GET` | `/api/scans/:id` | Get owned/capability-authorized scan details |
 | `DELETE` | `/api/scans/:id` | Delete a scan |
 | `POST` | `/api/scans/:id/cancel` | Cancel a running scan |
 | `GET` | `/api/reports/:scanId` | Get full report |
@@ -186,13 +212,27 @@ Zustand           Node.js 20+
 
 ## Who Is This For?
 
-**Government agencies** — Meet Section 508 and European Accessibility Act requirements with automated scanning.
+**Government agencies** — Support your Section 508 and European Accessibility Act (EAA) efforts by surfacing common issues early with automated scanning (see [Automated Testing Limitations](#automated-testing-limitations)).
 
 **Web agencies** — Offer accessibility audits to clients. Generate professional reports in minutes.
 
-**Enterprise** — Avoid ADA lawsuits (average settlement: $13K+). Scan hundreds of pages at once.
+**Enterprise** — Reduce accessibility risk by catching common, ADA-related barriers before they ship. Scan hundreds of pages at once.
 
 **Developers** — Integrate into CI/CD. Catch accessibility regressions before they ship.
+
+---
+
+## Automated Testing Limitations
+
+WCAG Crawler runs [axe-core](https://github.com/dequelabs/axe-core), which detects only **programmatically identifiable** accessibility issues — a subset of the WCAG success criteria. Automated tools cannot evaluate everything: meaningful alt-text quality, logical reading and focus order, keyboard operability of complex widgets, and content clarity all require human judgment and testing with assistive technologies and real users.
+
+As a result, WCAG Crawler:
+
+- **Does not certify** WCAG 2.1, Section 508, or European Accessibility Act (EAA) compliance
+- **Does not replace** manual evaluation by a qualified accessibility expert
+- **Is not** legal proof of compliance or a guarantee against accessibility-related claims
+
+Use these reports to find and fix common issues quickly and to track progress over time — then complement them with manual audits and usability testing for broader coverage.
 
 ---
 

@@ -1,5 +1,7 @@
 export type WcagVersion = '2.1' | '2.2';
 
+export type EntitlementTier = 'anonymous' | 'user' | 'admin';
+
 export interface ScanConfig {
   maxPages: number;
   maxDepth: number;
@@ -11,6 +13,38 @@ export interface ScanConfig {
   viewport: { width: number; height: number };
   authentication: { authType: 'form' | 'basic'; loginUrl: string; username: string; password: string } | null;
   wcagVersion: WcagVersion;
+  /** Effective entitlement tier this scan ran under (returned redacted; never carries credentials). */
+  entitlementTier?: EntitlementTier;
+}
+
+/** One numeric field the server clamped to the tier caps, disclosed to the client. */
+export interface EntitlementAdjustment {
+  field: 'maxPages' | 'maxDepth' | 'concurrency';
+  requested: number;
+  applied: number;
+  limit: number;
+}
+
+/** Response body of POST /api/scans. effectiveConfig is credential-redacted. */
+export interface ScanCreateResponse {
+  id: string;
+  status: string;
+  rootUrl: string;
+  entitlement: {
+    tier: EntitlementTier;
+    adjustments: EntitlementAdjustment[];
+  };
+  effectiveConfig: ScanConfig;
+  /** Returned once for anonymous scans; stored per scan and never sent elsewhere. */
+  accessToken?: string;
+}
+
+export interface AuthStateResponse {
+  authenticated: boolean;
+  role: EntitlementTier;
+  email?: string;
+  name?: string | null;
+  pictureUrl?: string | null;
 }
 
 export interface Scan {
@@ -79,6 +113,7 @@ export interface ReportSummary {
   totalPages: number;
   totalIssuesRaw: number;
   totalIssuesDeduplicated: number;
+  totalRuleTypes?: number;
   bySeverity: {
     critical: number;
     serious: number;

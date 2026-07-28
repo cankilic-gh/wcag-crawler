@@ -2,6 +2,8 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Download, Loader2, RefreshCw, Filter, ChevronDown, FileText, FileDown, Wrench } from 'lucide-react';
 import { reportApi, scanApi } from '../lib/api';
+import { scanStorage } from '../lib/storage';
+import { configForRescan } from '../lib/rescan-config';
 import { ScoreSummary } from '../components/report/ScoreSummary';
 import { PagesList } from '../components/report/PagesList';
 import { PageIssues } from '../components/report/PageIssues';
@@ -63,11 +65,39 @@ export function ReportPage() {
 
     setRescanning(true);
     try {
-      const result = await scanApi.create(report.scan.root_url, report.scan.config);
+      const result = await scanApi.create(report.scan.root_url, configForRescan(report.scan.config));
+      scanStorage.add({
+        id: result.id,
+        url: report.scan.root_url,
+        createdAt: new Date().toISOString(),
+        accessToken: result.accessToken,
+      });
       navigate(`/scans/${result.id}/progress`);
     } catch (err) {
       console.error('Failed to start rescan:', err);
       setRescanning(false);
+    }
+  };
+
+  const handleDownload = async (kind: 'html' | 'pdf' | 'fix') => {
+    if (!report) return;
+    setExportOpen(false);
+    try {
+      const blob = kind === 'fix'
+        ? await reportApi.downloadFixReport(report.scan.id)
+        : await reportApi.downloadExport(report.scan.id, kind);
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = kind === 'fix'
+        ? `fix-report-${report.scan.id}.md`
+        : `a11y-report-${report.scan.id}.${kind}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (downloadError) {
+      console.error('Failed to download report:', downloadError);
     }
   };
 
@@ -178,33 +208,30 @@ export function ReportPage() {
             </button>
             {exportOpen && (
               <div className="absolute right-0 top-full mt-2 w-48 bg-surface border border-border rounded-xl shadow-lg overflow-hidden z-50">
-                <a
-                  href={reportApi.exportUrl(report.scan.id, 'html')}
-                  download
+                <button
+                  type="button"
                   className="flex items-center gap-3 px-4 py-3 text-sm text-foreground hover:bg-muted transition-colors"
-                  onClick={() => setExportOpen(false)}
+                  onClick={() => handleDownload('html')}
                 >
                   <FileText className="w-4 h-4 text-foreground-muted" />
                   Export as HTML
-                </a>
-                <a
-                  href={reportApi.exportUrl(report.scan.id, 'pdf')}
-                  download
+                </button>
+                <button
+                  type="button"
                   className="flex items-center gap-3 px-4 py-3 text-sm text-foreground hover:bg-muted transition-colors border-t border-border"
-                  onClick={() => setExportOpen(false)}
+                  onClick={() => handleDownload('pdf')}
                 >
                   <FileDown className="w-4 h-4 text-foreground-muted" />
                   Export as PDF
-                </a>
-                <a
-                  href={reportApi.fixReportUrl(report.scan.id)}
-                  download
+                </button>
+                <button
+                  type="button"
                   className="flex items-center gap-3 px-4 py-3 text-sm text-foreground hover:bg-muted transition-colors border-t border-border"
-                  onClick={() => setExportOpen(false)}
+                  onClick={() => handleDownload('fix')}
                 >
                   <Wrench className="w-4 h-4 text-foreground-muted" />
                   Fix Report
-                </a>
+                </button>
               </div>
             )}
           </div>

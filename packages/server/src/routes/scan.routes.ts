@@ -1,24 +1,49 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, type RequestHandler } from 'express';
 import { z } from 'zod';
 import { Server as SocketServer } from 'socket.io';
 import { ScanModel, ScanConfig } from '../models/scan.model.js';
 import { PageModel } from '../models/page.model.js';
 import { crawlerService } from '../services/crawler.service.js';
 import { scannerService } from '../services/scanner.service.js';
+import { scanJobScheduler } from '../services/scan-job-scheduler.js';
 import { deduplicationService } from '../services/deduplication.service.js';
 import { reportService } from '../services/report.service.js';
 import { logger } from '../utils/logger.js';
 import { isValidScanUrl, normalizeUrl } from '../utils/url.utils.js';
 import { describeSkipReason } from '../utils/audit.utils.js';
+import {
+  applyEntitlements,
+  policyForPrincipal,
+  type EntitlementResolver,
+} from '../entitlements/policy.js';
+import {
+  redactCredentialText,
+  redactScanConfig,
+  redactUrlCredentials,
+  urlHasCredentials,
+} from '../entitlements/redaction.js';
+import { getPrincipal } from '../auth/middleware.js';
+import { createScanCreationRateLimiter } from '../auth/scan-rate-limit.js';
+import { createScanCapability, isScanAccessible } from '../auth/scan-access.js';
+import {
+  isPubliclyRoutableUrl,
+  type PublicUrlChecker,
+} from '../auth/network-policy.js';
 
 // Custom URL validator that accepts localhost and local network URLs
 const urlSchema = z.string().refine(
-  (url) => isValidScanUrl(url),
-  { message: 'Invalid URL. Must be a valid HTTP or HTTPS URL.' }
+  (url) => isValidScanUrl(url) && !urlHasCredentials(url),
+  { message: 'Invalid URL. Must be HTTP or HTTPS and must not contain embedded credentials.' }
+);
+
+const loginUrlSchema = z.string().url().refine(
+  (url) => !urlHasCredentials(url),
+  { message: 'Login URL must not contain embedded credentials.' },
 );
 
 const scanConfigSchema = z.object({
   url: urlSchema,
+  capabilityProtocol: z.literal(1).optional(),
   config: z.object({
     maxPages: z.number().min(1).max(100).default(50),
     maxDepth: z.number().min(1).max(5).default(3),
@@ -33,7 +58,7 @@ const scanConfigSchema = z.object({
     }).default({ width: 1280, height: 720 }),
     authentication: z.object({
       authType: z.enum(['form', 'basic']).default('form'),
-      loginUrl: z.string().url(),
+      loginUrl: loginUrlSchema,
       username: z.string(),
       password: z.string(),
     }).nullable().default(null),
@@ -41,31 +66,120 @@ const scanConfigSchema = z.object({
   }).default({}),
 });
 
-export function createScanRoutes(io: SocketServer): Router {
+/**
+ * The background scan pipeline, injected so route tests can exercise
+ * entitlement/persistence behaviour without launching Playwright.
+ */
+export type ScanRunner = (
+  scanId: string,
+  rootUrl: string,
+  config: ScanConfig,
+  io: SocketServer,
+) => Promise<void>;
+
+export interface ScanRoutesOptions {
+  /** Maps a request to its entitlement policy. Defaults to the principal's role. */
+  resolver?: EntitlementResolver;
+  /** Runs the scan pipeline. Defaults to the real Playwright-backed runScan. */
+  runner?: ScanRunner;
+  scanCreateRateLimiter?: RequestHandler;
+  publicUrlChecker?: PublicUrlChecker;
+  cancelScan?: (scanId: string) => boolean;
+  isScanScheduled?: (scanId: string) => boolean;
+}
+
+export function createScanRoutes(io: SocketServer, options: ScanRoutesOptions = {}): Router {
   const router = Router();
+  router.use((_req, res, next) => {
+    res.set('Cache-Control', 'private, no-store');
+    next();
+  });
+  const scanCreateRateLimiter = options.scanCreateRateLimiter ?? createScanCreationRateLimiter();
+  const runner = options.runner ?? runScan;
+  const publicUrlChecker = options.publicUrlChecker ?? isPubliclyRoutableUrl;
+  const cancelScan = options.cancelScan ?? (scanId => scanJobScheduler.cancel(scanId));
+  const isScanScheduled = options.isScanScheduled ?? (scanId => scanJobScheduler.has(scanId));
+
+  const canAccess = (req: Request, res: Response, scanId: string): boolean => {
+    const access = ScanModel.findAccessById(scanId);
+    return access !== null && isScanAccessible(
+      access,
+      getPrincipal(res),
+      req.header('X-Scan-Token') ?? undefined,
+    );
+  };
 
   // POST /api/scans - Start a new scan
-  router.post('/', async (req: Request, res: Response) => {
+  router.post('/', scanCreateRateLimiter, async (req: Request, res: Response) => {
     try {
       const parsed = scanConfigSchema.parse(req.body);
-      const config = parsed.config as ScanConfig;
+      const requestedConfig = parsed.config as ScanConfig;
 
-      // Create scan record
-      const scan = ScanModel.create(parsed.url, config);
-      logger.info('Scan created', { scanId: scan.id, url: parsed.url });
+      // Resolve the request's entitlement policy (request-scoped seam).
+      const principal = getPrincipal(res);
+      const policy = options.resolver ? options.resolver(req) : policyForPrincipal(principal);
 
-      // Start scan in background
-      runScan(scan.id, parsed.url, config, io).catch(error => {
-        logger.error('Scan failed', { scanId: scan.id, error: error.message });
-        ScanModel.updateStatus(scan.id, 'failed', error.message);
-        io.to(scan.id).emit('scan:status', { scanId: scan.id, status: 'failed', error: error.message });
-        io.to(scan.id).emit('scan:error', { scanId: scan.id, error: error.message });
+      if (principal.kind === 'anonymous' && parsed.capabilityProtocol !== 1) {
+        res.status(428).json({
+          error: 'Anonymous capability protocol v1 is required',
+          code: 'capability_protocol_required',
+        });
+        return;
+      }
+
+      if (principal.kind !== 'admin' && !(await publicUrlChecker(parsed.url))) {
+        res.status(400).json({
+          error: 'Target URL is not available for public scanning',
+          code: 'target_not_public',
+        });
+        return;
+      }
+
+      // Authentication gate: deny before any DB write if the tier forbids it.
+      if (requestedConfig.authentication && !policy.allowAuthentication) {
+        res.status(403).json({
+          error: 'Authenticated scans are not permitted on this tier',
+          code: 'authentication_not_entitled',
+          tier: policy.tier,
+        });
+        return;
+      }
+
+      // Clamp numeric overages to the tier caps (never reject). The effective
+      // config carries full credentials in-memory for the runner.
+      const { config: effectiveConfig, adjustments, tier } = applyEntitlements(requestedConfig, policy);
+
+      const capability = principal.kind === 'anonymous' ? createScanCapability() : null;
+      // Create scan record (ScanModel redacts credentials before persisting).
+      const scan = ScanModel.create(parsed.url, effectiveConfig, {
+        ownerGoogleSub: principal.kind === 'anonymous' ? null : principal.googleSub,
+        accessTokenHash: capability?.hash ?? null,
+      });
+      logger.info('Scan created', {
+        scanId: scan.id,
+        url: redactUrlCredentials(parsed.url),
+        tier,
+        adjustments: adjustments.length,
+      });
+
+      // Start scan in background with the full effective (credentialed) config.
+      runner(scan.id, parsed.url, effectiveConfig, io).catch(error => {
+        const safeError = redactCredentialText(error.message);
+        logger.error('Scan failed', { scanId: scan.id, error: safeError });
+        ScanModel.updateStatus(scan.id, 'failed', safeError);
+        io.to(scan.id).emit('scan:status', { scanId: scan.id, status: 'failed', error: safeError });
+        io.to(scan.id).emit('scan:error', { scanId: scan.id, error: safeError });
       });
 
       res.status(201).json({
         id: scan.id,
         status: scan.status,
         rootUrl: scan.root_url,
+        entitlement: { tier, adjustments },
+        // Disclose the effective config so the client can show what was applied.
+        // Redacted so credentials are never returned.
+        effectiveConfig: redactScanConfig(effectiveConfig),
+        accessToken: capability?.token,
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -80,9 +194,18 @@ export function createScanRoutes(io: SocketServer): Router {
   // GET /api/scans - List all scans
   router.get('/', (req: Request, res: Response) => {
     try {
-      const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
-      const offset = parseInt(req.query.offset as string) || 0;
-      const scans = ScanModel.findAll(limit, offset);
+      const requestedLimit = Number.parseInt(String(req.query.limit ?? ''), 10);
+      const requestedOffset = Number.parseInt(String(req.query.offset ?? ''), 10);
+      const limit = Number.isFinite(requestedLimit)
+        ? Math.min(100, Math.max(1, requestedLimit))
+        : 50;
+      const offset = Number.isFinite(requestedOffset) ? Math.max(0, requestedOffset) : 0;
+      const principal = getPrincipal(res);
+      const scans = principal.kind === 'admin'
+        ? ScanModel.findAll(limit, offset)
+        : principal.kind === 'user'
+          ? ScanModel.findAllByOwner(principal.googleSub, limit, offset)
+          : [];
       res.json(scans);
     } catch (error) {
       logger.error('Failed to list scans', { error: (error as Error).message });
@@ -93,11 +216,11 @@ export function createScanRoutes(io: SocketServer): Router {
   // GET /api/scans/:id - Get scan details
   router.get('/:id', (req: Request, res: Response) => {
     try {
-      const scan = ScanModel.findById(req.params.id);
-      if (!scan) {
+      if (!canAccess(req, res, req.params.id)) {
         res.status(404).json({ error: 'Scan not found' });
         return;
       }
+      const scan = ScanModel.findById(req.params.id)!;
 
       const pages = PageModel.findByScanId(scan.id);
       res.json({
@@ -121,9 +244,17 @@ export function createScanRoutes(io: SocketServer): Router {
   // DELETE /api/scans/:id - Delete a scan
   router.delete('/:id', (req: Request, res: Response) => {
     try {
-      const scan = ScanModel.findById(req.params.id);
-      if (!scan) {
+      if (!canAccess(req, res, req.params.id)) {
         res.status(404).json({ error: 'Scan not found' });
+        return;
+      }
+      const scan = ScanModel.findById(req.params.id)!;
+
+      if (isScanScheduled(scan.id) || (scan.status !== 'complete' && scan.status !== 'failed')) {
+        res.status(409).json({
+          error: 'Scan must be cancelled or complete before deletion',
+          code: 'scan_not_terminal',
+        });
         return;
       }
 
@@ -139,14 +270,16 @@ export function createScanRoutes(io: SocketServer): Router {
   // POST /api/scans/:id/cancel - Cancel a running scan
   router.post('/:id/cancel', (req: Request, res: Response) => {
     try {
-      const scan = ScanModel.findById(req.params.id);
-      if (!scan) {
+      if (!canAccess(req, res, req.params.id)) {
         res.status(404).json({ error: 'Scan not found' });
         return;
       }
+      const scan = ScanModel.findById(req.params.id)!;
 
-      crawlerService.cancel();
-      scannerService.cancel();
+      if (!cancelScan(scan.id)) {
+        res.status(409).json({ error: 'Scan is not running', code: 'scan_not_running' });
+        return;
+      }
       ScanModel.updateStatus(scan.id, 'failed', 'Scan cancelled by user');
       io.to(scan.id).emit('scan:status', { scanId: scan.id, status: 'failed', error: 'Scan cancelled by user' });
       logger.info('Scan cancelled', { scanId: scan.id });
@@ -167,6 +300,25 @@ function wasCancelled(scanId: string): boolean {
 }
 
 async function runScan(scanId: string, rootUrl: string, config: ScanConfig, io: SocketServer): Promise<void> {
+  return scanJobScheduler.enqueue(
+    scanId,
+    () => executeScan(scanId, rootUrl, config, io),
+    () => {
+      crawlerService.cancel();
+      scannerService.cancel();
+    },
+  );
+}
+
+async function executeScan(scanId: string, rootUrl: string, config: ScanConfig, io: SocketServer): Promise<void> {
+  try {
+    await executeScanPhases(scanId, rootUrl, config, io);
+  } finally {
+    await Promise.allSettled([crawlerService.close(), scannerService.close()]);
+  }
+}
+
+async function executeScanPhases(scanId: string, rootUrl: string, config: ScanConfig, io: SocketServer): Promise<void> {
   // Phase 1: Crawling
   ScanModel.updateStatus(scanId, 'crawling');
   io.to(scanId).emit('scan:status', { scanId, status: 'crawling' });

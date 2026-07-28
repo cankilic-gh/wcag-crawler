@@ -1,5 +1,6 @@
 import { getDatabase } from '../db/database.js';
 import { nanoid } from 'nanoid';
+import { redactUrlCredentials } from '../entitlements/redaction.js';
 
 export interface Page {
   id: string;
@@ -25,7 +26,12 @@ export const PageModel = {
       INSERT INTO pages (id, scan_id, url, status, source_url)
       VALUES (?, ?, ?, 'pending', ?)
     `);
-    stmt.run(id, scanId, url, sourceUrl || null);
+    stmt.run(
+      id,
+      scanId,
+      redactUrlCredentials(url),
+      sourceUrl ? redactUrlCredentials(sourceUrl) : null,
+    );
     return this.findById(id)!;
   },
 
@@ -36,6 +42,8 @@ export const PageModel = {
     if (!row) return null;
     return {
       ...row,
+      url: redactUrlCredentials(row.url as string),
+      source_url: row.source_url ? redactUrlCredentials(row.source_url as string) : null,
       regions_fingerprint: row.regions_fingerprint ? JSON.parse(row.regions_fingerprint as string) : null,
     } as Page;
   },
@@ -46,6 +54,8 @@ export const PageModel = {
     const rows = stmt.all(scanId) as Record<string, unknown>[];
     return rows.map(row => ({
       ...row,
+      url: redactUrlCredentials(row.url as string),
+      source_url: row.source_url ? redactUrlCredentials(row.source_url as string) : null,
       regions_fingerprint: row.regions_fingerprint ? JSON.parse(row.regions_fingerprint as string) : null,
     })) as Page[];
   },
@@ -57,6 +67,8 @@ export const PageModel = {
     if (!row) return null;
     return {
       ...row,
+      url: redactUrlCredentials(row.url as string),
+      source_url: row.source_url ? redactUrlCredentials(row.source_url as string) : null,
       regions_fingerprint: row.regions_fingerprint ? JSON.parse(row.regions_fingerprint as string) : null,
     } as Page;
   },

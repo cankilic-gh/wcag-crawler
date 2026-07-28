@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Train, AlertCircle, Clock } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { accessHeadersForScan } from '../../lib/access-headers';
 
 interface UsageData {
   creditsRemaining: number;
@@ -11,37 +13,45 @@ interface UsageData {
 }
 
 export function RailwayUsage() {
+  const { role } = useAuth();
   const [usage, setUsage] = useState<UsageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (role !== 'admin') {
+      setLoading(false);
+      return;
+    }
+
+    const fetchUsage = async () => {
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL || 'https://wcag-crawler-server.onrender.com';
+        const response = await fetch(`${apiUrl}/api/system/railway-usage`, {
+          headers: accessHeadersForScan(),
+        });
+        const data = await response.json();
+
+        if (data.usage) {
+          setUsage(data.usage);
+          setError(null);
+        } else if (data.error) {
+          setError(data.error);
+        }
+      } catch {
+        setError('Failed to fetch usage');
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchUsage();
     // Refresh every 5 minutes
     const interval = setInterval(fetchUsage, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [role]);
 
-  const fetchUsage = async () => {
-    try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'https://wcag-crawler-server.onrender.com';
-      const response = await fetch(`${apiUrl}/api/system/railway-usage`);
-      const data = await response.json();
-
-      if (data.usage) {
-        setUsage(data.usage);
-        setError(null);
-      } else if (data.error) {
-        setError(data.error);
-      }
-    } catch (err) {
-      setError('Failed to fetch usage');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
+  if (role !== 'admin' || loading) {
     return null;
   }
 

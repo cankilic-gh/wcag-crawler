@@ -8,7 +8,7 @@ on:
 
 jobs:
   verify:
-    name: Build & Type-check
+    name: Lint, Build & Type-check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -20,4 +20,5 @@ jobs:
           node-version: '22'
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
       - run: pnpm build

@@ -1,5 +1,14 @@
 -- A11y Crawler Database Schema
 
+CREATE TABLE IF NOT EXISTS users (
+  google_sub TEXT PRIMARY KEY,
+  email TEXT NOT NULL,
+  name TEXT,
+  picture_url TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  last_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS scans (
   id TEXT PRIMARY KEY,
   root_url TEXT NOT NULL,
@@ -16,7 +25,9 @@ CREATE TABLE IF NOT EXISTS scans (
   error_message TEXT,
   started_at DATETIME,
   completed_at DATETIME,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  owner_google_sub TEXT REFERENCES users(google_sub) ON DELETE SET NULL,
+  access_token_hash TEXT
 );
 
 CREATE TABLE IF NOT EXISTS pages (

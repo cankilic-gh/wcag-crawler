@@ -10,6 +10,7 @@ export interface ReportSummary {
   totalPages: number;
   totalIssuesRaw: number;
   totalIssuesDeduplicated: number;
+  totalRuleTypes: number;
   bySeverity: {
     critical: number;
     serious: number;
@@ -80,6 +81,12 @@ export interface FullReport {
   skippedPages: SkippedPageReport[];
 }
 
+export function countDistinctRuleTypes(
+  issues: Array<Pick<Issue, 'axe_rule_id'>>
+): number {
+  return new Set(issues.map(issue => issue.axe_rule_id)).size;
+}
+
 export class ReportService {
   generateReport(scanId: string): FullReport | null {
     const scan = ScanModel.findById(scanId);
@@ -114,7 +121,7 @@ export class ReportService {
     };
   }
 
-  private calculateSummary(scan: Scan, issues: Issue[], sharedComponents: SharedComponent[]): ReportSummary {
+  private calculateSummary(scan: Scan, issues: Issue[], _sharedComponents: SharedComponent[]): ReportSummary {
     const counts = IssueModel.countByScanId(scan.id);
 
     // Count unique issues (deduplicated)
@@ -176,6 +183,7 @@ export class ReportService {
       totalPages: scan.total_pages || 0,
       totalIssuesRaw: counts.total,
       totalIssuesDeduplicated,
+      totalRuleTypes: countDistinctRuleTypes(issues),
       bySeverity: {
         critical: counts.critical,
         serious: counts.serious,
@@ -294,7 +302,6 @@ export class ReportService {
   }
 
   calculateAndUpdateScore(scanId: string): void {
-    const issues = IssueModel.findByScanId(scanId);
     const scan = ScanModel.findById(scanId);
     if (!scan) return;
 

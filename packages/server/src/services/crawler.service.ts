@@ -1,4 +1,4 @@
-import { chromium, Browser, Page, BrowserContext, Cookie } from 'playwright';
+import { chromium, Browser, BrowserContext, Cookie } from 'playwright';
 import { Server as SocketServer } from 'socket.io';
 import { ScanConfig } from '../models/scan.model.js';
 import { PageModel } from '../models/page.model.js';
@@ -6,6 +6,9 @@ import { normalizeUrl, isSameOrigin, shouldSkipUrl, resolveUrl, getUrlPattern } 
 import { resolveSkipReason, isErrorPageSignature } from '../utils/audit.utils.js';
 import { logger } from '../utils/logger.js';
 import { getEffectiveBrowserConcurrency } from '../utils/resource-limits.js';
+import { redactCredentialText, redactUrlCredentials } from '../entitlements/redaction.js';
+import { createBrowserNetworkGuard } from '../auth/network-policy.js';
+import { publicNetworkProxy } from '../auth/public-network-proxy.js';
 
 interface CrawlResult {
   url: string;
@@ -33,7 +36,11 @@ export class CrawlerService {
     this.io = io;
     this.browser = await chromium.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--force-webrtc-ip-handling-policy=disable_non_proxied_udp',
+      ],
     });
     logger.info('Playwright browser launched');
   }
@@ -57,9 +64,12 @@ export class CrawlerService {
       viewport: { width: number; height: number };
       userAgent: string;
       httpCredentials?: { username: string; password: string };
+      proxy?: { server: string };
+      serviceWorkers: 'block';
     } = {
       viewport: config.viewport,
       userAgent: 'A11yCrawler/1.0 (WCAG Accessibility Scanner)',
+      serviceWorkers: 'block',
     };
 
     // Set HTTP Basic Auth credentials if configured
@@ -71,7 +81,14 @@ export class CrawlerService {
       logger.info('HTTP Basic Auth credentials configured for crawler');
     }
 
+    if (config.entitlementTier !== 'admin') {
+      contextOptions.proxy = { server: await publicNetworkProxy.url() };
+    }
+
     this.context = await this.browser.newContext(contextOptions);
+    if (config.entitlementTier !== 'admin') {
+      await this.context.route('**/*', createBrowserNetworkGuard());
+    }
     // Set default navigation timeout to prevent hanging
     this.context.setDefaultNavigationTimeout(30000);
     this.context.setDefaultTimeout(30000);
@@ -123,12 +140,13 @@ export class CrawlerService {
   }
 
   private async crawlPage(url: string, depth: number, sourceUrl?: string): Promise<CrawlResult | null> {
+    const safeUrl = redactUrlCredentials(url);
     if (this.visited.has(url)) {
       return null;
     }
 
     if (shouldSkipUrl(url, this.config?.excludePatterns || [])) {
-      logger.debug(`Skipping URL: ${url}`);
+      logger.debug(`Skipping URL: ${safeUrl}`);
       return null;
     }
 
@@ -153,7 +171,7 @@ export class CrawlerService {
       const finalUrl = normalizeUrl(page.url());
       if (finalUrl !== url) {
         if (this.visited.has(finalUrl)) {
-          logger.debug(`Skipping redirect duplicate: ${url} → ${finalUrl}`);
+          logger.debug(`Skipping redirect duplicate: ${safeUrl} → ${redactUrlCredentials(finalUrl)}`);
           await page.close();
           return null;
         }
@@ -181,7 +199,7 @@ export class CrawlerService {
       }
 
       if (skipReason) {
-        logger.info(`Skipping non-auditable page: ${url}`, { httpStatus, skipReason, contentType });
+        logger.info(`Skipping non-auditable page: ${safeUrl}`, { httpStatus, skipReason, contentType });
         const skippedRecord = PageModel.create(this.scanId, url, sourceUrl);
         PageModel.updateStatus(skippedRecord.id, 'skipped', {
           http_status: httpStatus,
@@ -190,7 +208,7 @@ export class CrawlerService {
         });
         this.io?.to(this.scanId).emit('crawl:page:skipped', {
           scanId: this.scanId,
-          url,
+          url: safeUrl,
           reason: skipReason,
           httpStatus,
         });
@@ -218,17 +236,19 @@ export class CrawlerService {
       // Emit event
       this.io?.to(this.scanId).emit('crawl:page:found', {
         scanId: this.scanId,
-        url,
+        url: safeUrl,
         title,
         depth,
         totalFound: this.visited.size,
       });
 
-      logger.info(`Crawled: ${url}`, { httpStatus, loadTimeMs, linksFound: links.length });
+      logger.info(`Crawled: ${safeUrl}`, { httpStatus, loadTimeMs, linksFound: links.length });
 
       return { url, title, httpStatus, loadTimeMs, links };
     } catch (error) {
-      logger.error(`Failed to crawl: ${url}`, { error: (error as Error).message });
+      logger.error(`Failed to crawl: ${safeUrl}`, {
+        error: redactCredentialText((error as Error).message),
+      });
 
       // Still record the page as discovered but with error
       const pageRecord = PageModel.create(this.scanId, url);
@@ -263,7 +283,9 @@ export class CrawlerService {
         if (pattern) {
           const count = this.patternCounts.get(pattern) || 0;
           if (count >= this.MAX_URLS_PER_PATTERN) {
-            logger.debug(`Skipping URL (pattern limit reached): ${normalized} [pattern: ${pattern}]`);
+            logger.debug(
+              `Skipping URL (pattern limit reached): ${redactUrlCredentials(normalized)} [pattern: ${pattern}]`,
+            );
             continue;
           }
           this.patternCounts.set(pattern, count + 1);
@@ -275,7 +297,7 @@ export class CrawlerService {
   }
 
   getAuthCookies(): Cookie[] {
-    return this.authCookies;
+    return [...this.authCookies];
   }
 
   private async performLogin(auth: { loginUrl: string; username: string; password: string }): Promise<void> {
@@ -283,7 +305,7 @@ export class CrawlerService {
 
     const page = await this.context.newPage();
     try {
-      logger.info('Performing form-based login', { loginUrl: auth.loginUrl });
+      logger.info('Performing form-based login', { loginUrl: redactUrlCredentials(auth.loginUrl) });
 
       await page.goto(auth.loginUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
       await page.waitForTimeout(1000);
@@ -419,6 +441,7 @@ export class CrawlerService {
       await page.waitForTimeout(2000);
 
       const finalUrl = page.url();
+      const safeFinalUrl = redactUrlCredentials(finalUrl);
       const finalTitle = await page.title();
       const cookies = await this.context!.cookies();
       const sessionCookies = cookies.filter(c =>
@@ -431,7 +454,7 @@ export class CrawlerService {
       if (loginFormStillVisible || finalUrl === auth.loginUrl) {
         logger.warn('Login likely FAILED', {
           reason: loginFormStillVisible ? 'password field still visible' : 'still on login URL',
-          finalUrl,
+          finalUrl: safeFinalUrl,
           finalTitle,
           sessionCookies: sessionCookies.length,
         });
@@ -442,7 +465,7 @@ export class CrawlerService {
         });
       } else {
         logger.info('Login likely SUCCEEDED', {
-          finalUrl,
+          finalUrl: safeFinalUrl,
           finalTitle,
           sessionCookies: sessionCookies.map(c => c.name),
           totalCookies: cookies.length,
@@ -450,11 +473,14 @@ export class CrawlerService {
         this.io?.to(this.scanId).emit('scan:auth', {
           scanId: this.scanId,
           success: true,
-          message: `Authenticated successfully — redirected to ${finalUrl}`,
+          message: 'Authenticated successfully',
         });
       }
     } catch (error) {
-      logger.error('Login failed', { error: (error as Error).message, loginUrl: auth.loginUrl });
+      logger.error('Login failed', {
+        error: redactCredentialText((error as Error).message),
+        loginUrl: redactUrlCredentials(auth.loginUrl),
+      });
     } finally {
       await page.close();
     }
@@ -473,6 +499,9 @@ export class CrawlerService {
       await this.browser.close();
       this.browser = null;
     }
+    this.context = null;
+    this.authCookies = [];
+    this.config = null;
     logger.info('Browser closed');
   }
 

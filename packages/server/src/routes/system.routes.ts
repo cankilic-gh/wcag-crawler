@@ -1,5 +1,6 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, type NextFunction } from 'express';
 import { logger } from '../utils/logger.js';
+import { getPrincipal } from '../auth/middleware.js';
 
 const RAILWAY_API_URL = 'https://backboard.railway.app/graphql/v2';
 
@@ -17,9 +18,17 @@ interface RailwayUsageResponse {
 
 export function createSystemRoutes(): Router {
   const router = Router();
+  const requireAdmin = (_req: Request, res: Response, next: NextFunction) => {
+    if (getPrincipal(res).kind !== 'admin') {
+      res.status(404).json({ error: 'Not found' });
+      return;
+    }
+    next();
+  };
 
   // GET /api/system/railway-usage - Get Railway usage stats
-  router.get('/railway-usage', async (_req: Request, res: Response) => {
+  router.get('/railway-usage', requireAdmin, async (_req: Request, res: Response) => {
+    res.set('Cache-Control', 'private, no-store');
     const railwayToken = process.env.RAILWAY_API_TOKEN;
 
     if (!railwayToken) {

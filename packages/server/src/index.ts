@@ -6,13 +6,27 @@ import { initializeDatabase } from './db/database.js';
 import { createScanRoutes } from './routes/scan.routes.js';
 import { createReportRoutes } from './routes/report.routes.js';
 import { createSystemRoutes } from './routes/system.routes.js';
+import { createAuthRoutes } from './routes/auth.routes.js';
 import { logger } from './utils/logger.js';
+import { createOptionalAuthMiddleware } from './auth/middleware.js';
+import { GoogleIdentityVerifier } from './auth/google-identity-verifier.js';
+import { resolveAuthRuntimeConfig } from './auth/runtime-config.js';
+import { createSocketAccessAuthorizer } from './auth/socket-access.js';
+import { publicNetworkProxy } from './auth/public-network-proxy.js';
 
 const PORT = process.env.PORT || 3001;
+const { googleClientId, adminEmails } = resolveAuthRuntimeConfig(process.env);
+const identityVerifier = googleClientId
+  ? new GoogleIdentityVerifier(googleClientId)
+  : { verify: async () => { throw new Error('Google authentication is not configured'); } };
+const authOptions = { verifier: identityVerifier, adminEmails };
+const authorizeSocketJoin = createSocketAccessAuthorizer(authOptions);
 
 // Initialize Express app
 const app = express();
 const httpServer = createServer(app);
+// Render terminates TLS at one trusted reverse proxy; required for per-IP rate limits.
+app.set('trust proxy', 1);
 
 // CORS configuration
 const allowedOrigins = process.env.CLIENT_URL
@@ -48,6 +62,7 @@ const io = new SocketServer(httpServer, {
 // Middleware
 app.use(cors(corsOptions));
 app.use(express.json());
+app.use('/api', createOptionalAuthMiddleware(authOptions));
 
 // Health check
 app.get('/health', (req, res) => {
@@ -55,6 +70,7 @@ app.get('/health', (req, res) => {
 });
 
 // API Routes
+app.use('/api/auth', createAuthRoutes({ googleClientId }));
 app.use('/api/scans', createScanRoutes(io));
 app.use('/api/reports', createReportRoutes());
 app.use('/api/system', createSystemRoutes());
@@ -64,8 +80,15 @@ io.on('connection', (socket) => {
   logger.info('Client connected', { socketId: socket.id });
 
   // Join scan room for real-time updates
-  socket.on('scan:join', (scanId: string) => {
-    socket.join(scanId);
+  socket.on('scan:join', async (payload: unknown, acknowledge?: (result: { ok: boolean }) => void) => {
+    const allowed = await authorizeSocketJoin(payload);
+    if (!allowed) {
+      acknowledge?.({ ok: false });
+      return;
+    }
+    const scanId = (payload as { scanId: string }).scanId;
+    await socket.join(scanId);
+    acknowledge?.({ ok: true });
     logger.debug('Client joined scan room', { socketId: socket.id, scanId });
   });
 
@@ -114,8 +137,9 @@ async function start() {
 start();
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, shutting down...');
+  await publicNetworkProxy.close();
   httpServer.close(() => {
     logger.info('Server closed');
     process.exit(0);

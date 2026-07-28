@@ -1,12 +1,13 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { socketJoinPayloadForScan } from '../lib/access-headers';
+import { SocketRoomRegistry } from '../lib/socket-room-registry';
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://wcag-crawler-server.onrender.com';
 
 // Singleton socket instance
 let socketInstance: Socket | null = null;
-// Track joined scan rooms so we can rejoin after reconnect
-const joinedRooms = new Set<string>();
+const roomRegistry = new SocketRoomRegistry(socketJoinPayloadForScan);
 
 function getSocket(): Socket {
   if (!socketInstance) {
@@ -33,11 +34,7 @@ export function useSocket() {
     const onConnect = () => {
       console.log('[Socket] Connected:', socket.id);
       setIsConnected(true);
-      // Rejoin scan rooms after reconnect
-      for (const scanId of joinedRooms) {
-        console.log('[Socket] Rejoining scan room after reconnect:', scanId);
-        socket.emit('scan:join', scanId);
-      }
+      roomRegistry.rejoin(socket);
     };
 
     const onDisconnect = () => {
@@ -62,15 +59,14 @@ export function useSocket() {
   const joinScan = useCallback((scanId: string) => {
     const socket = socketRef.current;
     console.log('[Socket] Joining scan room:', scanId);
-    joinedRooms.add(scanId);
-    socket.emit('scan:join', scanId);
+    if (!socket.connected) socket.connect();
+    roomRegistry.join(socket, scanId);
   }, []);
 
   const leaveScan = useCallback((scanId: string) => {
     const socket = socketRef.current;
     console.log('[Socket] Leaving scan room:', scanId);
-    joinedRooms.delete(scanId);
-    socket.emit('scan:leave', scanId);
+    roomRegistry.leave(socket, scanId);
   }, []);
 
   const onEvent = useCallback(<T>(event: string, callback: (data: T) => void) => {
@@ -95,4 +91,8 @@ export function useSocket() {
     leaveScan,
     onEvent,
   };
+}
+
+export function resetSocketSession(): void {
+  if (socketInstance) roomRegistry.clear(socketInstance);
 }

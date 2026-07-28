@@ -8,6 +8,9 @@ import { detectRegionFromSelector, generateFingerprint, DomRegion } from '../uti
 import { resolveSkipReason } from '../utils/audit.utils.js';
 import { logger } from '../utils/logger.js';
 import { getEffectiveBrowserConcurrency } from '../utils/resource-limits.js';
+import { createBrowserNetworkGuard } from '../auth/network-policy.js';
+import { publicNetworkProxy } from '../auth/public-network-proxy.js';
+import { redactCredentialText, redactUrlCredentials } from '../entitlements/redaction.js';
 
 interface AxeViolation {
   id: string;
@@ -42,7 +45,11 @@ export class ScannerService {
     this.io = io;
     this.browser = await chromium.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--force-webrtc-ip-handling-policy=disable_non_proxied_udp',
+      ],
     });
     logger.info('Scanner browser launched');
   }
@@ -60,9 +67,12 @@ export class ScannerService {
       viewport: { width: number; height: number };
       userAgent: string;
       httpCredentials?: { username: string; password: string };
+      proxy?: { server: string };
+      serviceWorkers: 'block';
     } = {
       viewport: config.viewport,
       userAgent: 'A11yCrawler/1.0 (WCAG Accessibility Scanner)',
+      serviceWorkers: 'block',
     };
 
     // Set HTTP Basic Auth credentials if configured
@@ -74,7 +84,14 @@ export class ScannerService {
       logger.info('HTTP Basic Auth credentials configured for scanner');
     }
 
+    if (config.entitlementTier !== 'admin') {
+      contextOptions.proxy = { server: await publicNetworkProxy.url() };
+    }
+
     this.context = await this.browser.newContext(contextOptions);
+    if (config.entitlementTier !== 'admin') {
+      await this.context.route('**/*', createBrowserNetworkGuard());
+    }
 
     // Inject authentication cookies from crawler session (for form-based auth)
     if (cookies && cookies.length > 0) {
@@ -123,13 +140,14 @@ export class ScannerService {
 
   private async scanPage(page: Page): Promise<ScanPageResult | null> {
     const playwrightPage = await this.context!.newPage();
+    const safePageUrl = redactUrlCredentials(page.url);
     // Per-page timeout: skip page if it takes too long
     playwrightPage.setDefaultTimeout(30000);
     playwrightPage.setDefaultNavigationTimeout(30000);
 
     this.io?.to(this.scanId).emit('scan:page:start', {
       scanId: this.scanId,
-      url: page.url,
+      url: safePageUrl,
     });
 
     try {
@@ -148,11 +166,11 @@ export class ScannerService {
       const contentType = headers['content-type'] || '';
       const skipReason = resolveSkipReason({ httpStatus, headers, contentType });
       if (skipReason) {
-        logger.info(`Skipping non-auditable page at scan time: ${page.url}`, { httpStatus, skipReason, contentType });
+        logger.info(`Skipping non-auditable page at scan time: ${safePageUrl}`, { httpStatus, skipReason, contentType });
         PageModel.updateStatus(page.id, 'skipped', { http_status: httpStatus, skip_reason: skipReason });
         this.io?.to(this.scanId).emit('scan:page:skipped', {
           scanId: this.scanId,
-          url: page.url,
+          url: safePageUrl,
           reason: skipReason,
           httpStatus,
         });
@@ -226,27 +244,28 @@ export class ScannerService {
 
       this.io?.to(this.scanId).emit('scan:page:complete', {
         scanId: this.scanId,
-        url: page.url,
+        url: safePageUrl,
         issueCount: issues.length,
       });
 
-      logger.info(`Scanned: ${page.url}`, { issueCount: issues.length });
+      logger.info(`Scanned: ${safePageUrl}`, { issueCount: issues.length });
 
       return {
-        url: page.url,
+        url: safePageUrl,
         issueCount: issues.length,
         issues,
         regionsFingerprint,
       };
     } catch (error) {
-      logger.error(`Failed to scan: ${page.url}`, { error: (error as Error).message });
+      const safeError = redactCredentialText((error as Error).message);
+      logger.error(`Failed to scan: ${safePageUrl}`, { error: safeError });
 
       PageModel.updateStatus(page.id, 'error');
 
       this.io?.to(this.scanId).emit('scan:page:error', {
         scanId: this.scanId,
-        url: page.url,
-        error: (error as Error).message,
+        url: safePageUrl,
+        error: safeError,
       });
 
       return null;

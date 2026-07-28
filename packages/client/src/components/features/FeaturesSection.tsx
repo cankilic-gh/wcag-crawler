@@ -27,7 +27,7 @@ const features = [
     icon: <FileSearch className="w-6 h-6" />,
     title: 'Deep Analysis',
     description:
-      'Full WCAG 2.1 AA compliance checking with detailed remediation guidance for every issue found.',
+      'Automated axe-core checks mapped to WCAG 2.1 AA success criteria, with detailed remediation guidance for every issue found.',
     tags: ['WCAG 2.1', 'DETAILED'],
   },
   {

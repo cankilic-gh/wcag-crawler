@@ -63,9 +63,9 @@ export const WCAG_VERSIONS = [
 ] as const;
 
 export const DEFAULT_SCAN_CONFIG = {
-  maxPages: 50,
-  maxDepth: 3,
-  concurrency: 3,
+  maxPages: 10,
+  maxDepth: 2,
+  concurrency: 1,
   delay: 500,
   excludePatterns: [],
   waitForSelector: null,

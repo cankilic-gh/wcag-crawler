@@ -5,35 +5,31 @@ import { scanApi } from '../lib/api';
 import { scanStorage } from '../lib/storage';
 import { EmptyState } from '../components/common/EmptyState';
 import type { Scan } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 export function ScanHistoryPage() {
+  const { state } = useAuth();
   const [scans, setScans] = useState<Scan[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadScans();
-  }, []);
-
-  const loadScans = () => {
-    const myScans = scanStorage.getIds();
-    if (myScans.length === 0) {
-      setScans([]);
-      setLoading(false);
-      return;
-    }
-
+    let active = true;
     setLoading(true);
-    scanApi
-      .list(500)
+    const request = state.authenticated
+      ? scanApi.list(100)
+      : Promise.allSettled(scanStorage.getIds().map(id => scanApi.get(id)))
+          .then(results => results
+            .filter((result): result is PromiseFulfilledResult<Scan> => result.status === 'fulfilled')
+            .map(result => result.value));
+
+    request
       .then((data) => {
-        if (Array.isArray(data)) {
-          const filtered = data.filter(scan => myScans.includes(scan.id));
-          setScans(filtered);
-        }
+        if (active) setScans(Array.isArray(data) ? data : []);
       })
       .catch(console.error)
-      .finally(() => setLoading(false));
-  };
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [state.authenticated]);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this scan?')) return;
@@ -42,7 +38,7 @@ export function ScanHistoryPage() {
       await scanApi.delete(id);
       scanStorage.remove(id);
       setScans(scans.filter((s) => s.id !== id));
-    } catch (error) {
+    } catch {
       scanStorage.remove(id);
       setScans(scans.filter((s) => s.id !== id));
     }

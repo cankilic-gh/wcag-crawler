@@ -403,7 +403,7 @@ export class DeduplicationService {
   /**
    * Generate a human-readable label from a selector
    */
-  private generateSelectorLabel(selector: string, ruleId: string): string {
+  private generateSelectorLabel(selector: string, _ruleId: string): string {
     // Try to extract meaningful info from selector
     const idMatch = selector.match(/#([\w-]+)/);
     const classMatch = selector.match(/\.([\w-]+)/);
