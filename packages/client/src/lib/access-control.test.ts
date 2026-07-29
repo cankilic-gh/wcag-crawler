@@ -61,8 +61,9 @@ describe('client role policies', () => {
     expect(clientPolicyForRole('user')).toEqual({
       maxPages: 50, maxDepth: 3, concurrency: 2, allowAuthentication: false,
     });
+    // Admin has a truly unlimited page count (null), mirroring the server.
     expect(clientPolicyForRole('admin')).toEqual({
-      maxPages: 100, maxDepth: 5, concurrency: 3, allowAuthentication: true,
+      maxPages: null, maxDepth: 5, concurrency: 3, allowAuthentication: true,
     });
   });
 });

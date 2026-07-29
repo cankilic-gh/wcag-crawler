@@ -132,7 +132,9 @@ export function ScanForm({ defaultShowAdvanced = false }: ScanFormProps = {}) {
         )}
         {!error && (
           <p className="text-xs text-foreground-muted/60 mt-2 text-center">
-            {role === 'anonymous' ? 'Anonymous' : role === 'admin' ? 'Admin' : 'Signed-in'} scan covers up to {policy.maxPages} pages and {policy.maxDepth} levels deep.
+            {policy.maxPages === null
+              ? `Admin scan covers unlimited pages and ${policy.maxDepth} levels deep.`
+              : `${role === 'anonymous' ? 'Anonymous' : 'Signed-in'} scan covers up to ${policy.maxPages} pages and ${policy.maxDepth} levels deep.`}
           </p>
         )}
       </div>
@@ -160,20 +162,30 @@ export function ScanForm({ defaultShowAdvanced = false }: ScanFormProps = {}) {
               <p className="text-xs text-foreground-muted mb-2">
                 Maximum number of pages to scan
               </p>
-              <input
-                type="range"
-                min="10"
-                max={policy.maxPages}
-                step="10"
-                value={config.maxPages}
-                onChange={(e) => setConfig({ ...config, maxPages: parseInt(e.target.value) })}
-                className="w-full accent-primary"
-              />
-              <div className="flex justify-between text-xs text-foreground-muted mt-1">
-                <span>10</span>
-                <span className="font-medium text-foreground">{config.maxPages}</span>
-                <span>{policy.maxPages}</span>
-              </div>
+              {policy.maxPages === null ? (
+                // Admin: truly unlimited page count — no numeric range to render.
+                <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm">
+                  <span className="text-foreground-muted">Page limit</span>
+                  <span className="font-medium text-foreground">Unlimited</span>
+                </div>
+              ) : (
+                <>
+                  <input
+                    type="range"
+                    min="10"
+                    max={policy.maxPages}
+                    step="10"
+                    value={config.maxPages ?? 10}
+                    onChange={(e) => setConfig({ ...config, maxPages: parseInt(e.target.value) })}
+                    className="w-full accent-primary"
+                  />
+                  <div className="flex justify-between text-xs text-foreground-muted mt-1">
+                    <span>10</span>
+                    <span className="font-medium text-foreground">{config.maxPages}</span>
+                    <span>{policy.maxPages}</span>
+                  </div>
+                </>
+              )}
             </div>
 
             <div>

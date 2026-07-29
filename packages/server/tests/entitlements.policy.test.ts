@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ADMIN_POLICY,
   ANONYMOUS_POLICY,
   applyEntitlements,
 } from '../src/entitlements/policy.js';
@@ -68,5 +69,44 @@ describe('applyEntitlements passthrough', () => {
     expect(result.config.maxPages).toBe(10);
     expect(result.config.maxDepth).toBe(2);
     expect(result.config.concurrency).toBe(1);
+  });
+});
+
+describe('applyEntitlements unlimited (admin) tier', () => {
+  it('has a truly unlimited page cap represented as null', () => {
+    // "Full WCAG" = unlimited page count for admin, not deeper crawling.
+    expect(ADMIN_POLICY.maxPages).toBeNull();
+    expect(ADMIN_POLICY.maxDepth).toBe(5);
+  });
+
+  it('passes an unlimited (null) page request through unchanged with no adjustment', () => {
+    const requested = baseConfig({ maxPages: null, maxDepth: 5, concurrency: 3 });
+
+    const result = applyEntitlements(requested, ADMIN_POLICY);
+
+    expect(result.config.maxPages).toBeNull();
+    expect(result.tier).toBe('admin');
+    expect(result.adjustments.find(a => a.field === 'maxPages')).toBeUndefined();
+  });
+
+  it('leaves a finite page request unclamped under the unlimited cap', () => {
+    const requested = baseConfig({ maxPages: 500, maxDepth: 5, concurrency: 3 });
+
+    const result = applyEntitlements(requested, ADMIN_POLICY);
+
+    expect(result.config.maxPages).toBe(500);
+    expect(result.adjustments.find(a => a.field === 'maxPages')).toBeUndefined();
+  });
+});
+
+describe('applyEntitlements null request against a finite tier', () => {
+  it('clamps an unlimited (null) page request down to the finite cap and discloses it', () => {
+    const requested = baseConfig({ maxPages: null, maxDepth: 2, concurrency: 1 });
+
+    const result = applyEntitlements(requested, ANONYMOUS_POLICY);
+
+    expect(result.config.maxPages).toBe(10);
+    const adjustment = result.adjustments.find(a => a.field === 'maxPages');
+    expect(adjustment).toMatchObject({ requested: null, applied: 10, limit: 10 });
   });
 });

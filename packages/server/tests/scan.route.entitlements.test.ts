@@ -9,7 +9,7 @@ import express, { type Express } from 'express';
 import request from 'supertest';
 import type { Server as SocketServer } from 'socket.io';
 import type { ScanConfig } from '../src/models/scan.model.js';
-import { ADMIN_POLICY, QUICK_POLICY, type EntitlementResolver } from '../src/entitlements/policy.js';
+import { ADMIN_POLICY, QUICK_POLICY, USER_POLICY, type EntitlementResolver } from '../src/entitlements/policy.js';
 
 // In-memory DB before any getDatabase() call.
 process.env.DATABASE_PATH = ':memory:';
@@ -40,6 +40,9 @@ function buildApp(resolver?: EntitlementResolver): Express {
 
 // A tier that forbids authenticated scans (models a future policy).
 const noAuthResolver: EntitlementResolver = () => ({ ...QUICK_POLICY, allowAuthentication: false });
+// The real admin policy: a truly unlimited (null) page cap.
+const adminUnlimitedResolver: EntitlementResolver = () => ADMIN_POLICY;
+const userResolver: EntitlementResolver = () => USER_POLICY;
 const credentialResolver: EntitlementResolver = () => ({
   ...ADMIN_POLICY,
   maxPages: 50,
@@ -119,6 +122,53 @@ describe('POST /api/scans entitlement enforcement', () => {
       .get(res.body.id) as { config: string };
     expect(raw.config).not.toContain(FAKE_PASSWORD);
     expect(raw.config).not.toContain(FAKE_USERNAME);
+  });
+
+  it('persists an admin unlimited (null) page cap end-to-end without clamping', async () => {
+    const app = buildApp(adminUnlimitedResolver);
+
+    const res = await request(app)
+      .post('/api/scans')
+      .send({
+        url: 'https://example.com',
+        capabilityProtocol: 1,
+        config: { maxPages: null, maxDepth: 5, concurrency: 3 },
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.entitlement.tier).toBe('admin');
+    // Unlimited request is honored — no maxPages adjustment recorded.
+    expect(
+      res.body.entitlement.adjustments.find((a: { field: string }) => a.field === 'maxPages'),
+    ).toBeUndefined();
+    expect(res.body.effectiveConfig.maxPages).toBeNull();
+
+    // The runner receives null (crawl terminates on queue exhaustion).
+    expect(capturedConfig?.maxPages).toBeNull();
+
+    // Persistence preserves the null intentionally (not dropped, not coerced).
+    const stored = ScanModel.findById(res.body.id);
+    expect(stored?.config.maxPages).toBeNull();
+    const raw = getDatabase()
+      .prepare('SELECT config FROM scans WHERE id = ?')
+      .get(res.body.id) as { config: string };
+    expect(JSON.parse(raw.config).maxPages).toBeNull();
+  });
+
+  it('clamps an unlimited (null) page request down to a finite tier cap', async () => {
+    const app = buildApp(noAuthResolver); // anonymous QUICK caps: maxPages 10
+
+    const res = await request(app)
+      .post('/api/scans')
+      .send({ url: 'https://example.com', capabilityProtocol: 1, config: { maxPages: null } });
+
+    expect(res.status).toBe(201);
+    expect(res.body.effectiveConfig.maxPages).toBe(10);
+    const adj = res.body.entitlement.adjustments.find(
+      (a: { field: string }) => a.field === 'maxPages',
+    );
+    expect(adj).toMatchObject({ requested: null, applied: 10, limit: 10 });
+    expect(capturedConfig?.maxPages).toBe(10);
   });
 
   it('denies an authenticated scan with 403 under a no-auth policy and writes nothing to the DB', async () => {
@@ -207,5 +257,79 @@ describe('POST /api/scans entitlement enforcement', () => {
     expect(capturedConfig).toBeUndefined();
     const count = getDatabase().prepare('SELECT COUNT(*) AS n FROM scans').get() as { n: number };
     expect(count.n).toBe(0);
+  });
+});
+
+describe('POST /api/scans tier-aware config defaults', () => {
+  it('fills anonymous defaults for an omitted config with no spurious adjustments', async () => {
+    const app = buildApp(); // anonymous principal → ANONYMOUS_POLICY
+
+    const res = await request(app)
+      .post('/api/scans')
+      .send({ url: 'https://example.com', capabilityProtocol: 1 });
+
+    expect(res.status).toBe(201);
+    expect(res.body.effectiveConfig).toMatchObject({ maxPages: 10, maxDepth: 2, concurrency: 1 });
+    expect(res.body.entitlement.adjustments).toEqual([]);
+    expect(capturedConfig).toMatchObject({ maxPages: 10, maxDepth: 2, concurrency: 1 });
+  });
+
+  it('fills user defaults for an omitted config (concurrency 2, depth 3) with no adjustments', async () => {
+    const app = buildApp(userResolver);
+
+    const res = await request(app)
+      .post('/api/scans')
+      .send({ url: 'https://example.com', capabilityProtocol: 1 });
+
+    expect(res.status).toBe(201);
+    expect(res.body.effectiveConfig).toMatchObject({ maxPages: 50, maxDepth: 3, concurrency: 2 });
+    expect(res.body.entitlement.adjustments).toEqual([]);
+  });
+
+  it('fills admin unlimited defaults for an omitted config (null pages, depth 5)', async () => {
+    const app = buildApp(adminUnlimitedResolver);
+
+    const res = await request(app)
+      .post('/api/scans')
+      .send({ url: 'https://example.com', capabilityProtocol: 1 });
+
+    expect(res.status).toBe(201);
+    expect(res.body.effectiveConfig.maxPages).toBeNull();
+    expect(res.body.effectiveConfig).toMatchObject({ maxDepth: 5, concurrency: 3 });
+    expect(res.body.entitlement.adjustments).toEqual([]);
+    expect(capturedConfig?.maxPages).toBeNull();
+  });
+
+  it('fills only omitted fields on a partial config and clamps explicit overages', async () => {
+    const app = buildApp(); // anonymous
+
+    const res = await request(app)
+      .post('/api/scans')
+      .send({ url: 'https://example.com', capabilityProtocol: 1, config: { maxDepth: 5 } });
+
+    expect(res.status).toBe(201);
+    // maxPages/concurrency filled from policy; explicit maxDepth 5 clamps to 2.
+    expect(res.body.effectiveConfig).toMatchObject({ maxPages: 10, maxDepth: 2, concurrency: 1 });
+    const byField = Object.fromEntries(
+      res.body.entitlement.adjustments.map((a: { field: string }) => [a.field, a]),
+    );
+    expect(byField.maxDepth).toMatchObject({ requested: 5, applied: 2, limit: 2 });
+    expect(byField.maxPages).toBeUndefined();
+    expect(byField.concurrency).toBeUndefined();
+  });
+
+  it('preserves an explicit null maxPages on a finite tier and clamps it to the cap', async () => {
+    const app = buildApp(userResolver);
+
+    const res = await request(app)
+      .post('/api/scans')
+      .send({ url: 'https://example.com', capabilityProtocol: 1, config: { maxPages: null } });
+
+    expect(res.status).toBe(201);
+    expect(res.body.effectiveConfig.maxPages).toBe(50);
+    const adj = res.body.entitlement.adjustments.find(
+      (a: { field: string }) => a.field === 'maxPages',
+    );
+    expect(adj).toMatchObject({ requested: null, applied: 50, limit: 50 });
   });
 });

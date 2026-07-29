@@ -69,7 +69,9 @@ function isValidScanConfig(value: unknown): value is ScanConfig {
     && value.entitlementTier !== 'anonymous'
     && value.entitlementTier !== 'user'
     && value.entitlementTier !== 'admin') return false;
-  return isFiniteNumber(value.maxPages)
+  // maxPages may be null (unlimited/admin) — preserved intentionally — but any
+  // other non-numeric value is malformed.
+  return (value.maxPages === null || isFiniteNumber(value.maxPages))
     && isFiniteNumber(value.maxDepth)
     && isFiniteNumber(value.concurrency)
     && isFiniteNumber(value.delay)

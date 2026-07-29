@@ -6,6 +6,7 @@ import { normalizeUrl, isSameOrigin, shouldSkipUrl, resolveUrl, getUrlPattern } 
 import { resolveSkipReason, isErrorPageSignature } from '../utils/audit.utils.js';
 import { logger } from '../utils/logger.js';
 import { getEffectiveBrowserConcurrency } from '../utils/resource-limits.js';
+import { nextBatchSize } from '../utils/crawl-limit.js';
 import { redactCredentialText, redactUrlCredentials } from '../entitlements/redaction.js';
 import { createBrowserNetworkGuard } from '../auth/network-policy.js';
 import { publicNetworkProxy } from '../auth/public-network-proxy.js';
@@ -109,8 +110,18 @@ export class CrawlerService {
       });
     }
 
-    while (this.queue.length > 0 && this.visited.size < config.maxPages && !this.isCancelled) {
-      const batch = this.queue.splice(0, concurrency);
+    // Attempted-page budget, reserved atomically per batch so a concurrent
+    // batch never overshoots maxPages. Independent of `visited`, which also
+    // grows with redirect aliases and would miscount the reservation.
+    let attempted = 0;
+
+    while (!this.isCancelled) {
+      const batchSize = nextBatchSize(this.queue.length, concurrency, attempted, config.maxPages);
+      if (batchSize === 0) break;
+
+      const batch = this.queue.splice(0, batchSize);
+      // Reserve the budget before launching so overlapping work cannot exceed it.
+      attempted += batch.length;
       const results = await Promise.all(
         batch.map(item => this.crawlPage(item.url, item.depth, item.sourceUrl))
       );

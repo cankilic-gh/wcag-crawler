@@ -14,7 +14,8 @@ export type { EntitlementTier };
 
 export interface EntitlementPolicy {
   tier: EntitlementTier;
-  maxPages: number;
+  /** Page-count cap. `null` means a truly unlimited number of pages (admin). */
+  maxPages: number | null;
   maxDepth: number;
   maxConcurrency: number;
   /** Whether the tier is permitted to run authenticated (behind-login) scans. */
@@ -43,7 +44,9 @@ export const USER_POLICY: EntitlementPolicy = {
 
 export const ADMIN_POLICY: EntitlementPolicy = {
   tier: 'admin',
-  maxPages: 100,
+  // Truly unlimited page count. "Full WCAG" is ruleset coverage, not deeper
+  // crawling, so maxDepth stays finite/tiered.
+  maxPages: null,
   maxDepth: 5,
   maxConcurrency: 3,
   allowAuthentication: true,
@@ -60,9 +63,10 @@ export function policyForPrincipal(principal: Principal): EntitlementPolicy {
 
 export interface EntitlementAdjustment {
   field: 'maxPages' | 'maxDepth' | 'concurrency';
-  requested: number;
-  applied: number;
-  limit: number;
+  // maxPages may be requested/clamped as null (unlimited); depth/concurrency stay numeric.
+  requested: number | null;
+  applied: number | null;
+  limit: number | null;
 }
 
 export interface AppliedEntitlements {
@@ -97,9 +101,24 @@ export function applyEntitlements(
     return requested;
   };
 
+  // maxPages supports `null` (unlimited) on both the request and the cap.
+  // - Unlimited cap: honor the request verbatim (finite number or null).
+  // - Finite cap: an unlimited (null) request OR a numeric overage clamps down.
+  const clampMaxPages = (
+    requested: number | null,
+    limit: number | null,
+  ): number | null => {
+    if (limit === null) return requested;
+    if (requested === null || requested > limit) {
+      adjustments.push({ field: 'maxPages', requested, applied: limit, limit });
+      return limit;
+    }
+    return requested;
+  };
+
   const effective: ScanConfig = {
     ...config,
-    maxPages: clamp('maxPages', config.maxPages, policy.maxPages),
+    maxPages: clampMaxPages(config.maxPages, policy.maxPages),
     maxDepth: clamp('maxDepth', config.maxDepth, policy.maxDepth),
     concurrency: clamp('concurrency', config.concurrency, policy.maxConcurrency),
     entitlementTier: policy.tier,

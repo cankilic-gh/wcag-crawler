@@ -3,7 +3,8 @@ export type WcagVersion = '2.1' | '2.2';
 export type EntitlementTier = 'anonymous' | 'user' | 'admin';
 
 export interface ScanConfig {
-  maxPages: number;
+  /** Page-count cap. `null` means unlimited (admin tier only). */
+  maxPages: number | null;
   maxDepth: number;
   concurrency: number;
   delay: number;
@@ -20,9 +21,10 @@ export interface ScanConfig {
 /** One numeric field the server clamped to the tier caps, disclosed to the client. */
 export interface EntitlementAdjustment {
   field: 'maxPages' | 'maxDepth' | 'concurrency';
-  requested: number;
-  applied: number;
-  limit: number;
+  // maxPages may be requested/clamped as null (unlimited); depth/concurrency stay numeric.
+  requested: number | null;
+  applied: number | null;
+  limit: number | null;
 }
 
 /** Response body of POST /api/scans. effectiveConfig is credential-redacted. */

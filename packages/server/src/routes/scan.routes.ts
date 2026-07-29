@@ -45,9 +45,13 @@ const scanConfigSchema = z.object({
   url: urlSchema,
   capabilityProtocol: z.literal(1).optional(),
   config: z.object({
-    maxPages: z.number().min(1).max(100).default(50),
-    maxDepth: z.number().min(1).max(5).default(3),
-    concurrency: z.number().min(1).max(5).default(3),
+    // Entitlement fields carry NO schema default — a tier-agnostic default would
+    // wrongly give admins a finite cap and force spurious clamps on lower tiers.
+    // When omitted they are filled from the resolved policy below. `null`
+    // requests a truly unlimited page count (admin only); finite tiers clamp it.
+    maxPages: z.number().min(1).max(100).nullable().optional(),
+    maxDepth: z.number().min(1).max(5).optional(),
+    concurrency: z.number().min(1).max(5).optional(),
     delay: z.number().min(0).max(5000).default(500),
     excludePatterns: z.array(z.string()).default([]),
     waitForSelector: z.string().nullable().default(null),
@@ -113,11 +117,21 @@ export function createScanRoutes(io: SocketServer, options: ScanRoutesOptions = 
   router.post('/', scanCreateRateLimiter, async (req: Request, res: Response) => {
     try {
       const parsed = scanConfigSchema.parse(req.body);
-      const requestedConfig = parsed.config as ScanConfig;
 
       // Resolve the request's entitlement policy (request-scoped seam).
       const principal = getPrincipal(res);
       const policy = options.resolver ? options.resolver(req) : policyForPrincipal(principal);
+
+      // Fill omitted entitlement fields from the resolved policy (tier-aware
+      // defaults). An explicit `maxPages: null` is preserved so finite tiers
+      // clamp it and admin keeps its unlimited cap; global non-entitlement
+      // defaults were already applied by the schema.
+      const requestedConfig: ScanConfig = {
+        ...parsed.config,
+        maxPages: parsed.config.maxPages === undefined ? policy.maxPages : parsed.config.maxPages,
+        maxDepth: parsed.config.maxDepth ?? policy.maxDepth,
+        concurrency: parsed.config.concurrency ?? policy.maxConcurrency,
+      };
 
       if (principal.kind === 'anonymous' && parsed.capabilityProtocol !== 1) {
         res.status(428).json({

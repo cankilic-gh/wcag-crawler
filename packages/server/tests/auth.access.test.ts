@@ -78,7 +78,7 @@ describe('principal entitlement policies', () => {
     const principal = principalFromIdentity(identity({ email: ADMIN_EMAIL }), [ADMIN_EMAIL]);
     expect(policyForPrincipal(principal)).toEqual(ADMIN_POLICY);
     expect(ADMIN_POLICY).toMatchObject({
-      tier: 'admin', maxPages: 100, maxDepth: 5, maxConcurrency: 3,
+      tier: 'admin', maxPages: null, maxDepth: 5, maxConcurrency: 3,
       allowAuthentication: true,
     });
   });

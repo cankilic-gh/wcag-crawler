@@ -8,7 +8,8 @@ export type WcagVersion = '2.1' | '2.2';
 export type EntitlementTier = 'anonymous' | 'user' | 'admin';
 
 export interface ScanConfig {
-  maxPages: number;
+  /** Page-count cap. `null` means unlimited (admin tier only). */
+  maxPages: number | null;
   maxDepth: number;
   concurrency: number;
   delay: number;

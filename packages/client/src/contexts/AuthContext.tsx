@@ -47,7 +47,7 @@ const ANONYMOUS_STATE: AuthStateResponse = {
   role: 'anonymous',
 };
 
-const AuthContext = createContext<AuthContextValue>({
+export const AuthContext = createContext<AuthContextValue>({
   state: ANONYMOUS_STATE,
   role: 'anonymous',
   loading: false,
