@@ -9,7 +9,7 @@
     "start": "pnpm --filter server start",
     "db:migrate": "pnpm --filter server db:migrate",
     "lint": "eslint .",
-    "test": "pnpm -r test"
+    "test": "node --test action/index.test.js && pnpm -r test"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

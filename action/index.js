@@ -175,6 +175,7 @@ async function main() {
       method: 'POST',
       body: JSON.stringify({
         url: TARGET_URL,
+        capabilityProtocol: 1,
         config: {
           maxPages: MAX_PAGES,
           maxDepth: MAX_DEPTH,
@@ -194,6 +195,12 @@ async function main() {
   }
 
   const scanId = scanResponse.id;
+  const scanAccessToken = scanResponse.accessToken;
+  if (!scanAccessToken) {
+    annotation('error', 'Scan API did not return an anonymous access capability');
+    process.exit(1);
+  }
+  const scanAccessHeaders = { 'X-Scan-Token': scanAccessToken };
   log(`Scan started: ${scanId}`);
   setOutput('scan-id', scanId);
   logGroupEnd();
@@ -212,7 +219,7 @@ async function main() {
     }
 
     try {
-      scanData = await apiRequest(`/api/scans/${scanId}`);
+      scanData = await apiRequest(`/api/scans/${scanId}`, { headers: scanAccessHeaders });
     } catch (error) {
       log(`Poll error: ${error.message} (will retry)`);
       await sleep(POLL_INTERVAL_MS);
@@ -246,7 +253,7 @@ async function main() {
   logGroup('Fetching report');
   let report;
   try {
-    report = await apiRequest(`/api/reports/${scanId}`);
+    report = await apiRequest(`/api/reports/${scanId}`, { headers: scanAccessHeaders });
   } catch (error) {
     annotation('error', `Failed to fetch report: ${error.message}`);
     process.exit(1);
